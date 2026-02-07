@@ -2,7 +2,12 @@
 {% block body %}
 <div style="display: flex; min-height: 220px; border-radius: 1rem; overflow: hidden; align-items: stretch;">
     <div class="has-background-primary is-flex" style="color: white; min-width: 250px; flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
-        <div style="width:100%; text-align:left; padding-left:2rem;">
+        <div style="width:100%; text-align:left; padding-left:2rem; position: relative;">
+            <button id="edit-book-btn" class="button is-ghost has-text-white" style="position: absolute; top: 0; left: 0; padding: 0.5rem;" title="Edit book information">
+                <span class="icon">
+                    <i class="fas fa-cog"></i>
+                </span>
+            </button>
             <div class="block">
                 <h1 class="title is-2 has-text-weight-semibold">{{ book.title }}</h1>
             </div>
@@ -93,8 +98,161 @@
     </div>
 </div>
 
+<!-- Edit Book Modal -->
+<div class="modal" id="edit-book-modal">
+    <div class="modal-background"></div>
+    <div class="modal-card" style="width: 600px; max-width: 90vw;">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Edit Book Information</p>
+            <button class="delete" aria-label="close" id="close-edit-book-modal"></button>
+        </header>
+        <section class="modal-card-body">
+            <form id="edit-book-form">
+                <div class="columns is-multiline">
+                    <div class="column is-full">
+                        <div class="field">
+                            <label class="label">Title</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="title" value="{{ book.title }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-full">
+                        <div class="field">
+                            <label class="label">Subtitle</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="subtitle" value="{{ book.subtitle or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-full">
+                        <div class="field">
+                            <label class="label">Author</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="author" value="{{ book.author }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-half">
+                        <div class="field">
+                            <label class="label">Local Number</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="localnumber" value="{{ book.localnumber }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-half">
+                        <div class="field">
+                            <label class="label">Location</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="booklocation" value="{{ book.booklocation or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-half">
+                        <div class="field">
+                            <label class="label">Call 1</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="call1" value="{{ book.call1 or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-half">
+                        <div class="field">
+                            <label class="label">Call 2</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="call2" value="{{ book.call2 or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-half">
+                        <div class="field">
+                            <label class="label">Publisher</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="publisher" value="{{ book.publisher or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-half">
+                        <div class="field">
+                            <label class="label">Published</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="published" value="{{ book.published or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column is-full">
+                        <div class="field">
+                            <label class="label">ISBN</label>
+                            <div class="control">
+                                <input class="input is-primary" type="text" name="isbn" value="{{ book.isbn or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-primary has-text-white" id="save-book-btn">Save Changes</button>
+            <button class="button" id="cancel-edit-book-btn">Cancel</button>
+        </footer>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Edit book modal functionality
+    const editBookBtn = document.getElementById('edit-book-btn');
+    const editBookModal = document.getElementById('edit-book-modal');
+    const closeEditBookModal = document.getElementById('close-edit-book-modal');
+    const cancelEditBookBtn = document.getElementById('cancel-edit-book-btn');
+    const saveBookBtn = document.getElementById('save-book-btn');
+    const editBookForm = document.getElementById('edit-book-form');
+    
+    editBookBtn.addEventListener('click', function() {
+        editBookModal.classList.add('is-active');
+    });
+    
+    function closeModal() {
+        editBookModal.classList.remove('is-active');
+    }
+    
+    closeEditBookModal.addEventListener('click', closeModal);
+    cancelEditBookBtn.addEventListener('click', closeModal);
+    editBookModal.querySelector('.modal-background').addEventListener('click', closeModal);
+    
+    saveBookBtn.addEventListener('click', function() {
+        const formData = new FormData(editBookForm);
+        const data = Object.fromEntries(formData.entries());
+        
+        // Show loading state
+        saveBookBtn.disabled = true;
+        saveBookBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-spin"></i></span><span>Saving...</span>';
+        
+        fetch('/update_book/{{ book.rowid }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (result.error || 'Unknown error'));
+                saveBookBtn.disabled = false;
+                saveBookBtn.innerHTML = 'Save Changes';
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+            saveBookBtn.disabled = false;
+            saveBookBtn.innerHTML = 'Save Changes';
+        });
+    });
+    
     // Handle return book buttons
     document.querySelectorAll('.return-book-btn').forEach(btn => {
         btn.addEventListener('click', function() {

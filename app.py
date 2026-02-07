@@ -365,6 +365,65 @@ def remove_books():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/update_book/<int:book_id>', methods=['POST'])
+def update_book(book_id):
+    """Update book information"""
+    data = request.get_json()
+    
+    required_fields = ['title', 'author', 'localnumber']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+    
+    try:
+        
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        
+        # Update book information
+        cur.execute('''
+            UPDATE books SET 
+                title = ?,
+                subtitle = ?,
+                author = ?,
+                publisher = ?,
+                published = ?,
+                isbn = ?,
+                localnumber = ?,
+                call1 = ?,
+                call2 = ?,
+                booklocation = ?
+            WHERE rowid = ?
+        ''', (
+            data.get('title'),
+            data.get('subtitle'),
+            data.get('author'),
+            data.get('publisher'),
+            data.get('published'),
+            data.get('isbn'),
+            data.get('localnumber'),
+            data.get('call1'),
+            data.get('call2'),
+            data.get('booklocation'),
+            book_id
+        ))
+        
+        if cur.rowcount == 0:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Book not found'}), 404
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Book updated successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # Open Library API lookup for ISBN autofill
 @app.route('/lookup_isbn', methods=['POST'])
 def lookup_isbn():
@@ -1508,32 +1567,52 @@ def validate_database_schema(db_path):
 
 def recreate_database_if_invalid(db_path):
     """Check database validity and recreate if corrupted or invalid"""
+    import sys
+    
+    print(f"[DB CHECK] Starting database validation for {db_path}", file=sys.stderr, flush=True)
+    
+    # Check if database file exists
+    if not db_path.exists():
+        print(f"[DB CHECK] Database file does not exist, creating new database...", file=sys.stderr, flush=True)
+        check_setup(db_path)
+        print(f"[DB CHECK] New database created successfully", file=sys.stderr, flush=True)
+        return
+    
     try:
         # First, try to connect
+        print(f"[DB CHECK] Testing database connection...", file=sys.stderr, flush=True)
         conn = sqlite3.connect(str(db_path))
         conn.execute('SELECT 1')  # Basic query to test connection
         conn.close()
+        print(f"[DB CHECK] Database connection successful", file=sys.stderr, flush=True)
     except Exception as e:
-        print(f"Database connection failed: {e}")
-        print("Deleting and recreating database...")
-        if db_path.exists():
+        print(f"[DB CHECK] Database connection failed: {e}", file=sys.stderr, flush=True)
+        print(f"[DB CHECK] Deleting corrupted database and recreating...", file=sys.stderr, flush=True)
+        try:
             db_path.unlink()
+            print(f"[DB CHECK] Deleted corrupted database file", file=sys.stderr, flush=True)
+        except Exception as delete_error:
+            print(f"[DB CHECK] Failed to delete database: {delete_error}", file=sys.stderr, flush=True)
         check_setup(db_path)
+        print(f"[DB CHECK] Database recreated successfully", file=sys.stderr, flush=True)
         return
     
     # Connection works, now validate schema
+    print(f"[DB CHECK] Validating database schema...", file=sys.stderr, flush=True)
     if not validate_database_schema(db_path):
-        print("Database schema is invalid or corrupted")
-        print("Deleting and recreating database...")
+        print(f"[DB CHECK] Database schema is invalid or corrupted", file=sys.stderr, flush=True)
+        print(f"[DB CHECK] Deleting and recreating database...", file=sys.stderr, flush=True)
         if db_path.exists():
             try:
                 db_path.unlink()
-                print(f"Deleted corrupted database at {db_path}")
+                print(f"[DB CHECK] Deleted corrupted database at {db_path}", file=sys.stderr, flush=True)
             except Exception as e:
-                print(f"Failed to delete database: {e}")
+                print(f"[DB CHECK] Failed to delete database: {e}", file=sys.stderr, flush=True)
                 return
         check_setup(db_path)
-        print(f"Database recreated successfully at {db_path}")
+        print(f"[DB CHECK] Database recreated successfully at {db_path}", file=sys.stderr, flush=True)
+    else:
+        print(f"[DB CHECK] Database schema is valid", file=sys.stderr, flush=True)
 
 # ============================================================================
 # APPLICATION STARTUP
