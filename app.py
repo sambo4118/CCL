@@ -38,30 +38,6 @@ app = Flask(__name__)
 # Database path configuration
 db_path = pathlib.Path(__file__).parent / 'library.db'
 
-
-# Verify database connectivity and recreate if corrupted
-def recreate_database(db_path):
-    if db_path.exists():
-        try:
-            db_path.unlink()
-            print(f"Deleted corrupted database at {db_path}")
-        except Exception as e:
-            print(f"Failed to delete corrupted database: {e}")
-    # Recreate the database
-    try:
-        check_setup(db_path)
-        print(f"Recreated database at {db_path}")
-    except Exception as e:
-        print(f"Failed to recreate database: {e}")
-
-try:
-    conn = sqlite3.connect(str(db_path))
-    conn.execute('SELECT name FROM sqlite_master LIMIT 1')
-    conn.close()
-except Exception as e:
-    print(f"Failed to connect to database: {e}")
-    recreate_database(db_path)
-
 # ============================================================================
 # TEMPLATE FILTERS
 # ============================================================================
@@ -1456,11 +1432,82 @@ def check_database_validity(db_path, output_path=pathlib.Path(__file__).parent /
     finally:
         conn.close()
 
+def validate_database_schema(db_path):
+    """Validate that the database has the correct schema structure"""
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        
+        # Check critical tables and their columns
+        schema_checks = [
+            ('uauth', ['id', 'username', 'password']),
+            ('uauth_cookies', ['id', 'user_id', 'cookie']),
+            ('books', ['localnumber', 'title', 'author']),
+            ('students', ['id', 'name', 'fax_id', 'class_id']),
+            ('classes', ['id', 'name', 'teacher_name']),
+            ('checkouts', ['id', 'student_id', 'book_id', 'checkout_date', 'return_date'])
+        ]
+        
+        for table_name, required_columns in schema_checks:
+            # Check if table exists
+            cur.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+            if not cur.fetchone():
+                conn.close()
+                print(f"Table {table_name} does not exist")
+                return False
+            
+            # Check if required columns exist
+            cur.execute(f"PRAGMA table_info({table_name})")
+            columns = [row[1] for row in cur.fetchall()]
+            
+            missing_columns = [col for col in required_columns if col not in columns]
+            if missing_columns:
+                conn.close()
+                print(f"Table {table_name} is missing columns: {missing_columns}")
+                return False
+        
+        conn.close()
+        return True
+        
+    except Exception as e:
+        print(f"Database validation failed: {e}")
+        return False
+
+def recreate_database_if_invalid(db_path):
+    """Check database validity and recreate if corrupted or invalid"""
+    try:
+        # First, try to connect
+        conn = sqlite3.connect(str(db_path))
+        conn.execute('SELECT 1')  # Basic query to test connection
+        conn.close()
+    except Exception as e:
+        print(f"Database connection failed: {e}")
+        print("Deleting and recreating database...")
+        if db_path.exists():
+            db_path.unlink()
+        check_setup(db_path)
+        return
+    
+    # Connection works, now validate schema
+    if not validate_database_schema(db_path):
+        print("Database schema is invalid or corrupted")
+        print("Deleting and recreating database...")
+        if db_path.exists():
+            try:
+                db_path.unlink()
+                print(f"Deleted corrupted database at {db_path}")
+            except Exception as e:
+                print(f"Failed to delete database: {e}")
+                return
+        check_setup(db_path)
+        print(f"Database recreated successfully at {db_path}")
+
 # ============================================================================
 # APPLICATION STARTUP
 # ============================================================================
 
-# Initialize database on startup
+# Verify database connectivity and schema, then initialize
+recreate_database_if_invalid(db_path)
 check_setup(db_path)
 
 @app.route('/force_backup', methods=['POST'])
