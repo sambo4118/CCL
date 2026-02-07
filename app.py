@@ -332,6 +332,39 @@ def add_book():
     return jsonify({'success': True})
 
 
+@app.route('/remove_books', methods=['POST'])
+def remove_books():
+
+    data = request.get_json()
+    book_ids = data.get('book_ids', [])
+    
+    if not book_ids:
+        return jsonify({'success': False, 'error': 'No books selected'}), 400
+    
+    try:
+
+        trigger_event_backup('bulk_book_deletion')
+        
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        
+
+        placeholders = ','.join('?' * len(book_ids))
+        cur.execute(f'DELETE FROM books WHERE rowid IN ({placeholders})', book_ids)
+        deleted_count = cur.rowcount
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Successfully removed {deleted_count} book(s)'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # Open Library API lookup for ISBN autofill
 @app.route('/lookup_isbn', methods=['POST'])
 def lookup_isbn():

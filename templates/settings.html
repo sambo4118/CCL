@@ -143,7 +143,7 @@
                     <div class="column is-narrow">
                         <button class="button" id="export-outstanding-btn" type="button" title="this is blue because dice wanted it to be blue">
                             <span class="icon">
-                                <i class="fas fa-exclamation-triangle"></i>
+                                <i class="fas fa-file-export"></i>
                             </span>
                         </button>
                     </div>
@@ -1159,7 +1159,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.books && data.books.length > 0) {
-                    const availableBooks = data.books.filter(book => !selectedBooks.some(b => b.id === book.id));
+                    const availableBooks = data.books.filter(book => !selectedBooks.some(b => String(b.id) === String(book.id)));
                     if (availableBooks.length > 0) {
                         removeBookResults.innerHTML = availableBooks.map(book =>
                             `<div class="box is-flex is-align-items-center is-justify-content-space-between">
@@ -1171,9 +1171,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             btn.addEventListener('click', function() {
                                 const bookId = this.dataset.bookId;
                                 const bookTitle = this.dataset.bookTitle;
-                                if (!selectedBooks.some(b => b.id === bookId)) {
+                                if (!selectedBooks.some(b => String(b.id) === String(bookId))) {
                                     selectedBooks.push({id: bookId, title: bookTitle});
                                     renderChips();
+
+                                    removeBookSearch.dispatchEvent(new Event('input'));
                                 }
                             });
                         });
@@ -1198,8 +1200,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.remove-chip-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const bookId = this.dataset.bookId;
-                selectedBooks = selectedBooks.filter(b => b.id !== bookId);
+                selectedBooks = selectedBooks.filter(b => String(b.id) !== String(bookId));
                 renderChips();
+                if (removeBookSearch.value.trim().length >= 2) {
+                    removeBookSearch.dispatchEvent(new Event('input'));
+                }
             });
         });
     }
@@ -1209,23 +1214,40 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Select at least one book to remove.');
             return;
         }
-        fetch('/remove_books', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({book_ids: selectedBooks.map(b => b.id)})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                closeModal();
-                location.reload();
-            } else {
-                alert('Error: ' + (data.error || 'Unknown error'));
+        
+        const bookCount = selectedBooks.length;
+        const bookWord = bookCount === 1 ? 'book' : 'books';
+        showConfirmation(
+            'Remove Books',
+            `Are you sure you want to remove ${bookCount} ${bookWord}? This action cannot be undone. A backup will be created automatically.`,
+            function() {
+                // Show loading state
+                confirmRemoveBooksBtn.disabled = true;
+                confirmRemoveBooksBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-spin"></i></span><span>Removing...</span>';
+                
+                fetch('/remove_books', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({book_ids: selectedBooks.map(b => b.id)})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        closeModal();
+                        location.reload();
+                    } else {
+                        alert('Error: ' + (data.error || 'Unknown error'));
+                        confirmRemoveBooksBtn.disabled = false;
+                        confirmRemoveBooksBtn.innerHTML = 'Remove Selected';
+                    }
+                })
+                .catch(error => {
+                    alert('Error: ' + error.message);
+                    confirmRemoveBooksBtn.disabled = false;
+                    confirmRemoveBooksBtn.innerHTML = 'Remove Selected';
+                });
             }
-        })
-        .catch(error => {
-            alert('Error: ' + error.message);
-        });
+        );
     });
 });
 </script>
