@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Library System</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .login-card {
+            background: white;
+            border-radius: 15px;
+            padding: 3rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-title {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #363636;
+        }
+        .login-subtitle {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #757575;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <h1 class="title is-3 login-title">
+                📚 Library System
+            </h1>
+            <p class="login-subtitle">
+                Enter your email to receive a secure login link
+            </p>
+
+            <!-- Flash messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="notification is-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' }}">
+                            <button class="delete"></button>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <div class="field">
+                    <label class="label">Email Address</label>
+                    <div class="control has-icons-left">
+                        <input class="input is-large" 
+                               type="email" 
+                               name="email" 
+                               placeholder="Enter your email address"
+                               required>
+                        <span class="icon is-small is-left">
+                            <i class="fas fa-envelope"></i>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <div class="control">
+                        <button type="submit" class="button is-primary is-fullwidth is-large">
+                            Send Login Link
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <div class="has-text-centered" style="margin-top: 2rem;">
+                <p class="is-size-7 has-text-grey">
+                    🔐 Secure one-time login via email<br>
+                    No passwords required
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-hide flash messages after 5 seconds
+        document.addEventListener('DOMContentLoaded', () => {
+            const notifications = document.querySelectorAll('.notification');
+            notifications.forEach(notification => {
+                const deleteButton = notification.querySelector('.delete');
+                if (deleteButton) {
+                    deleteButton.addEventListener('click', () => {
+                        notification.remove();
+                    });
+                }
+
+                // Auto-hide success messages
+                if (notification.classList.contains('is-success')) {
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 5000);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

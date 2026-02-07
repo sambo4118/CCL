@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block body %}
+<div style="display: flex; min-height: 220px; border-radius: 1rem; overflow: hidden; align-items: stretch;">
+    <div class="has-background-primary is-flex" style="color: white; min-width: 250px; flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
+        <div style="width:100%; text-align:left; padding-left:2rem;">
+            <div class="block">
+                <h1 class="title is-2 has-text-weight-semibold">{{ student.name }}</h1>
+            </div>
+            {% if student.class_name %}
+            <div class="block">
+                <h3 class="subtitle has-text-black has-text-weight-semibold is-3">{{ student.class_name }}{% if student.teacher_name %}, {{ student.teacher_name }}{% endif %}</h3>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="section p-0 m-0" style="flex: 7;">
+        <div style="width:100%; height:100%; background: linear-gradient(270deg, #14161a 0%, #6a9a75 100%); display: flex; align-items: center; justify-content: flex-end;">
+            <ul style="color: white; min-width: 180px; margin: 2rem;">
+                {% if student.address %}
+                <li><strong>Address:</strong> {{ student.address }}</li>
+                {% endif %}
+                {% if student.phone %}
+                <li><strong>Phone:</strong> {{ student.phone }}</li>
+                {% endif %}
+                {% if student.email %}
+                <li><strong>Email:</strong> {{ student.email }}</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+<div class="columns is-gapless" style="margin-bottom: 0.5rem;">
+	<div class="column section" style="height:10px; padding:0;"></div>
+</div>
+<div class="columns is-gapless" style="margin-top: 0;">
+    <div class="column is-10 section py-3 px-5 ml-3" style="color: white; min-width: 250px;">
+        {% if checkouts %}
+        <table class="table is-fullwidth section has-text-white is-rounded" style="border-radius: 1rem; overflow: hidden;">
+            <tbody>
+            {% for c in checkouts %}
+                <tr>
+                    <td colspan="3" style="padding:0; border:none; background:none;">
+                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
+                            <div style="{% if not c['return_date'] %}flex:1.7{% else %}flex:2{% endif %}; background: linear-gradient(90deg, #14161a 0%, {{ c['checkout_date'] | checkout_status(c['return_date']) }} 100%); padding:0.5rem 1rem; {% if not c['return_date'] %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem;{% else %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; border-top-right-radius:0.75rem; border-bottom-right-radius:0.75rem;{% endif %} display: flex; justify-content: space-between; align-items: center;">
+                                <div style="text-align: left;">
+                                    <a href="/book/{{ c['localnumber'] | urlencode }}" class="has-text-white has-text-weight-semibold">{{ c['title'] }}</a>
+                                </div>
+                                <div style="text-align: right;" title="Checked out: {{ c['checkout_date'] | nice_date }}">
+                                    {% if c['return_date'] %}
+                                        <div title="Returned: {{ c['return_date'] | nice_date }}">Returned: {{ c['return_date'] | nice_date }}</div>
+                                    {% else %}
+                                        <div>{{ c['checkout_date'] | due_date }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if not c['return_date'] %}
+                            <form method="POST" action="/return_book" style="margin: 0; flex: 0.3;">
+                                <input type="hidden" name="checkout_id" value="{{ c['checkout_id'] }}">
+                                <input type="hidden" name="redirect_url" value="{{ request.url }}">
+                                <button type="button" class="has-background-primary has-text-white has-text-weight-semibold return-book-btn" data-checkout-id="{{ c['checkout_id'] }}" data-book-title="{{ c['title'] }}" data-redirect-url="{{ request.url }}" style="width: 100%; height: 100%; background: transparent; border: none; padding: 0.5rem; border-top-right-radius: 0.75rem; border-bottom-right-radius: 0.75rem; display: flex; align-items: center; justify-content: center; cursor: pointer;" title="Return this book">
+                                    <span class="icon"><i class="fas fa-check"></i></span>
+                                    <span>Return</span>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No checkouts for this student.</p>
+        {% endif %}
+    </div>
+    <div class="column section py-3 px-3" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start; min-width: 120px;">
+      <button type="button" class="button is-primary checkout-btn" data-student-id="{{ student.fax_id }}" data-student-name="{{ student.name }}" title="Checkout book to {{ student.name }}" style="height: 6rem; width: calc(100% - 1.5rem); position: relative; margin: 0 0.75rem 0.75rem 0.75rem;">
+            <div style="display: flex; align-items: center; justify-content: center; width: 100%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); flex-direction: column; gap: 0.5rem;">
+                <i class="fas fa-plus fa-2x"></i>
+                <span style="font-weight: 600; font-size: 14px;">Checkout Book</span>
+            </div>
+        </button>
+        <span class="icon is-large has-text-primary">
+            <i class="fas fa-book fa-3x"></i>
+        </span>
+    </div>
+</div>
+
+<!-- Checkout Modal -->
+<div class="modal" id="checkout-modal">
+    <div class="modal-background"></div>
+    <div class="modal-card" style="width: 400px; max-width: 90vw; min-height: 20rem;">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Checkout Book</p>
+            <button class="delete" aria-label="close" id="close-modal-btn"></button>
+        </header>
+        <section class="modal-card-body">
+            <form id="checkout-form">
+                <div class="field">
+                    <label class="label">Book Local Number</label>
+                    <div class="control">
+                        <input class="input is-primary" type="text" id="book-local-id" placeholder="Enter local number..." autocomplete="off">
+                    </div>
+                </div>
+                <div class="field" id="book-details" style="display:none;">
+                    <label class="label">Book Details</label>
+                    <div class="box">
+                        <p><strong>Title:</strong> <span id="book-title"></span></p>
+                        <p><strong>Subtitle:</strong> <span id="book-subtitle"></span></p>
+                        <p><strong>Author:</strong> <span id="book-author"></span></p>
+                    </div>
+                    <input type="hidden" name="book_title" id="selected-book-title">
+                </div>
+                <div class="field">
+                    <label class="label">Student</label>
+                    <div class="control">
+                        <input class="input is-primary" type="text" id="student-name-display" readonly>
+                    </div>
+                    <input type="hidden" name="student_id" id="selected-student-id">
+                    <input type="hidden" name="checkout_date" id="checkout-date-hidden">
+                </div>
+            </form>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-primary" id="save-checkout-btn" type="button">Save</button>
+            <button class="button" id="cancel-checkout-btn" style="margin-left: 1rem;">Cancel</button>
+        </footer>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('checkout-modal');
+    const checkoutBtn = document.querySelector('.checkout-btn');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const cancelCheckoutBtn = document.getElementById('cancel-checkout-btn');
+    const saveCheckoutBtn = document.getElementById('save-checkout-btn');
+    const checkoutForm = document.getElementById('checkout-form');
+    const bookLocalId = document.getElementById('book-local-id');
+    const bookDetails = document.getElementById('book-details');
+
+    let selectedBookData = null;
+
+    // Open modal when checkout button is clicked
+    if (checkoutBtn) {
+        checkoutBtn.addEventListener('click', function() {
+            const studentId = this.dataset.studentId;
+            const studentName = this.dataset.studentName;
+            
+            // Pre-fill the student info
+            document.getElementById('selected-student-id').value = studentId;
+            document.getElementById('student-name-display').value = studentName;
+            
+            // Set current date automatically
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('checkout-date-hidden').value = today;
+            
+            modal.classList.add('is-active');
+            
+            // Focus the book local ID input after modal animation
+            setTimeout(() => {
+                bookLocalId.focus();
+                bookLocalId.select();
+            }, 100);
+        });
+    }
+
+    // Close modal
+    [closeModalBtn, cancelCheckoutBtn].forEach(btn => {
+        if (btn) {
+            btn.addEventListener('click', function() {
+                modal.classList.remove('is-active');
+                resetForm();
+            });
+        }
+    });
+
+    // Close modal on background click
+    document.querySelector('.modal-background').addEventListener('click', function() {
+        modal.classList.remove('is-active');
+        resetForm();
+    });
+
+    // Book lookup functionality
+    let lookupTimeout;
+    bookLocalId.addEventListener('input', function() {
+        clearTimeout(lookupTimeout);
+        const localNumber = this.value.trim();
+        
+        if (localNumber.length > 0) {
+            lookupTimeout = setTimeout(() => {
+                lookupBook(localNumber);
+            }, 500);
+        } else {
+            bookDetails.style.display = 'none';
+            selectedBookData = null;
+        }
+    });
+
+    function lookupBook(localNumber) {
+        fetch(`/api/book/${encodeURIComponent(localNumber)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    bookDetails.style.display = 'none';
+                    selectedBookData = null;
+                } else {
+                    // Show book details
+                    document.getElementById('book-title').textContent = data.title || 'N/A';
+                    document.getElementById('book-subtitle').textContent = data.subtitle || 'N/A';
+                    document.getElementById('book-author').textContent = data.author || 'N/A';
+                    document.getElementById('selected-book-title').value = data.title;
+                    
+                    if (data.checked_out) {
+                        document.getElementById('book-title').innerHTML = `${data.title} <span style="color: red;">(Currently checked out to ${data.checked_out_to})</span>`;
+                    }
+                    
+                    bookDetails.style.display = 'block';
+                    selectedBookData = data;
+                }
+            })
+            .catch(error => {
+                console.error('Error looking up book:', error);
+                bookDetails.style.display = 'none';
+                selectedBookData = null;
+            });
+    }
+
+    // Save checkout
+    saveCheckoutBtn.addEventListener('click', function() {
+        const studentId = document.getElementById('selected-student-id').value;
+        const bookTitle = document.getElementById('selected-book-title').value;
+        const checkoutDate = document.getElementById('checkout-date-hidden').value;
+        
+        if (!studentId || !bookTitle || !checkoutDate) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        if (selectedBookData && selectedBookData.checked_out) {
+            alert('This book is currently checked out to another student');
+            return;
+        }
+        
+        const checkoutData = {
+            student_id: studentId,
+            book_title: bookTitle,
+            checkout_date: checkoutDate
+        };
+        
+        fetch('/add_checkout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(checkoutData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                modal.classList.remove('is-active');
+                location.reload(); // Refresh to show new checkout
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    });
+
+    function resetForm() {
+        bookLocalId.value = '';
+        bookDetails.style.display = 'none';
+        selectedBookData = null;
+    }
+    
+    // Handle return book buttons
+    document.querySelectorAll('.return-book-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const checkoutId = this.dataset.checkoutId;
+            const bookTitle = this.dataset.bookTitle;
+            const redirectUrl = this.dataset.redirectUrl;
+            
+            showConfirmation('Return Book', `Are you sure you want to return "${bookTitle}"?`, () => {
+                // Create and submit form
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/return_book';
+                
+                const checkoutInput = document.createElement('input');
+                checkoutInput.type = 'hidden';
+                checkoutInput.name = 'checkout_id';
+                checkoutInput.value = checkoutId;
+                form.appendChild(checkoutInput);
+                
+                const redirectInput = document.createElement('input');
+                redirectInput.type = 'hidden';
+                redirectInput.name = 'redirect_url';
+                redirectInput.value = redirectUrl;
+                form.appendChild(redirectInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

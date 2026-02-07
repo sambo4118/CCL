@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        /* Mobile-First Responsive Design */
+        
+        /* Base mobile styles */
+        @media screen and (max-width: 768px) {
+            .container.is-fluid {
+                padding: 0.5rem !important;
+            }
+            
+            .section {
+                padding: 1rem !important;
+            }
+            
+            /* Mobile typography */
+            .title {
+                font-size: 1.5rem !important;
+            }
+            
+            .subtitle {
+                font-size: 1.25rem !important;
+            }
+            
+            /* Mobile buttons - larger touch targets */
+            .button {
+                min-height: 44px !important;
+                font-size: 1rem !important;
+                padding: 0.75rem 1rem !important;
+            }
+            
+            .button.is-small {
+                min-height: 36px !important;
+                font-size: 0.875rem !important;
+            }
+            
+            .button.is-large {
+                min-height: 56px !important;
+                font-size: 1.25rem !important;
+            }
+            
+            /* Mobile tables - horizontal scroll */
+            .table-container {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            
+            .table {
+                min-width: 600px !important;
+                font-size: 0.875rem !important;
+            }
+            
+            /* Mobile forms */
+            .field {
+                margin-bottom: 1.5rem !important;
+            }
+            
+            .input, .textarea, .select select {
+                font-size: 16px !important; /* Prevents zoom on iOS */
+                min-height: 44px !important;
+                padding: 0.75rem !important;
+            }
+            
+            .label {
+                font-weight: 600 !important;
+                margin-bottom: 0.5rem !important;
+            }
+            
+            /* Mobile columns - stack vertically */
+            .columns.is-mobile-stacked {
+                flex-direction: column !important;
+            }
+            
+            .column {
+                padding: 0.5rem !important;
+            }
+            
+            /* Mobile cards and boxes */
+            .box {
+                padding: 1rem !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            .modal-card {
+                width: 95vw !important;
+                max-width: 95vw !important;
+                margin: 1rem !important;
+            }
+            
+            .modal-card-body {
+                padding: 1rem !important;
+            }
+        }
+        
+        /* Fix hamburger menu positioning and animation */
+        .navbar-burger {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 3.25rem !important;
+            height: 3.25rem !important;
+            position: relative !important;
+        }
+        
+        /* Hide hamburger on desktop, show only on mobile */
+        @media screen and (min-width: 1024px) {
+            .navbar-burger {
+                display: none !important;
+            }
+        }
+        
+        @media screen and (max-width: 1023px) {
+            .navbar-burger {
+                display: flex !important;
+            }
+        }
+        
+        .navbar-burger span {
+            height: 2px !important;
+            width: 18px !important;
+            display: block !important;
+            position: absolute !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            transition: all 0.3s ease !important;
+            background-color: currentColor !important;
+        }
+        
+        .navbar-burger span:nth-child(1) {
+            top: calc(50% - 7px) !important;
+        }
+        .navbar-burger span:nth-child(2) {
+            top: 50% !important;
+            transform: translateX(-50%) translateY(-50%) !important;
+        }
+        .navbar-burger span:nth-child(3) {
+            top: calc(50% + 5px) !important;
+        }
+        
+        /* Hamburger animation when active */
+        .navbar-burger.is-active span:nth-child(1) {
+            transform: translateX(-50%) translateY(7px) rotate(45deg) !important;
+        }
+        .navbar-burger.is-active span:nth-child(2) {
+            opacity: 0 !important;
+        }
+        .navbar-burger.is-active span:nth-child(3) {
+            transform: translateX(-50%) translateY(-5px) rotate(-45deg) !important;
+        }
+        
+        /* Mobile navbar */
+        @media screen and (max-width: 1023px) {
+            .navbar-menu {
+                box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1) !important;
+            }
+            
+            .navbar-item {
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+            }
+        }
+        
+        /* Ensure dropdown is closed by default */
+        .navbar-item.has-dropdown:not(.is-active) .navbar-dropdown {
+            display: none !important;
+        }
+        .navbar-item.has-dropdown.is-active .navbar-dropdown {
+            display: block !important;
+        }
+        
+        /* Mobile dropdown styling */
+        @media screen and (max-width: 1023px) {
+            .navbar-item.has-dropdown:hover .navbar-dropdown {
+                display: none !important;
+            }
+            .navbar-item.has-dropdown.is-active .navbar-dropdown {
+                display: block !important;
+                position: absolute !important;
+                top: 100% !important;
+                left: 0 !important;
+                right: 0 !important;
+                z-index: 20 !important;
+                box-shadow: 0 8px 16px rgba(10, 10, 10, 0.1) !important;
+                border-radius: 6px !important;
+                background-color: var(--bulma-primary) !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border-top: 2px solid rgba(255, 255, 255, 0.2) !important;
+            }
+            
+            .navbar-item.has-dropdown {
+                position: relative !important;
+            }
+            
+            .navbar-item.has-dropdown .navbar-dropdown .navbar-item {
+                padding: 0.75rem 1rem !important;
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+                background-color: transparent !important;
+                color: white !important;
+                font-weight: normal !important;
+            }
+            
+            .navbar-item.has-dropdown .navbar-dropdown .navbar-item:hover,
+            .navbar-item.has-dropdown .navbar-dropdown .navbar-item:focus {
+                background-color: rgba(255, 255, 255, 0.15) !important;
+                color: white !important;
+            }
+            
+            .navbar-item.has-dropdown .navbar-dropdown .navbar-item:last-child {
+                border-bottom: none !important;
+                border-bottom-left-radius: 6px !important;
+                border-bottom-right-radius: 6px !important;
+            }
+            
+            .navbar-item.has-dropdown .navbar-dropdown .navbar-item:first-child {
+                border-top-left-radius: 6px !important;
+                border-top-right-radius: 6px !important;
+            }
+        }
+        
+        /* Mobile-specific detail page layouts */
+        @media screen and (max-width: 768px) {
+            /* Student/Book detail headers */
+            .detail-header {
+                flex-direction: column !important;
+                text-align: center !important;
+                min-height: auto !important;
+            }
+            
+            .detail-header > div {
+                width: 100% !important;
+                padding: 1rem !important;
+            }
+            
+            /* Mobile checkout/return buttons */
+            .mobile-action-button {
+                width: 100% !important;
+                margin: 0.5rem 0 !important;
+                min-height: 50px !important;
+                font-size: 1.1rem !important;
+            }
+            
+            /* Mobile book/student lists */
+            .mobile-list-item {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                padding: 1rem !important;
+                margin-bottom: 1rem !important;
+                border-radius: 0.75rem !important;
+            }
+            
+            .mobile-list-item .mobile-item-info {
+                margin-bottom: 0.75rem !important;
+                text-align: center !important;
+            }
+            
+            .mobile-list-item .mobile-item-action {
+                width: 100% !important;
+                justify-content: center !important;
+            }
+            
+            /* Fix checkout lists extending off screen */
+            .table-container, .table {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+            }
+            
+            /* Detail page containers */
+            .columns.is-gapless {
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow-x: hidden !important;
+            }
+            
+            .column.section {
+                padding: 0.5rem !important;
+                overflow-x: hidden !important;
+                word-wrap: break-word !important;
+            }
+            
+            /* Checkout list items - make them stack vertically on mobile */
+            div[style*="display:flex"] {
+                flex-wrap: wrap !important;
+                max-width: 100% !important;
+            }
+            
+            div[style*="border-radius:0.75rem"] {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                overflow: hidden !important;
+                margin-bottom: 0.75rem !important;
+                max-width: 100% !important;
+            }
+            
+            /* Checkout item content */
+            div[style*="background: linear-gradient"] {
+                padding: 0.75rem !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+                min-height: auto !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                text-align: left !important;
+            }
+            
+            /* Checkout buttons - make them full width on mobile */
+            button[style*="border-top-right-radius"],
+            form[style*="flex: 0.3"] {
+                width: 100% !important;
+                flex: none !important;
+                margin-top: 0.5rem !important;
+            }
+            
+            button[style*="border-top-right-radius"] {
+                border-radius: 0.75rem !important;
+                border-top-left-radius: 0.75rem !important;
+                border-top-right-radius: 0.75rem !important;
+                min-height: 44px !important;
+            }
+            
+            /* Settings page mobile layout */
+            .settings-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+            
+            .settings-item {
+                width: 100% !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            /* Search mobile optimizations */
+            .search-container {
+                padding: 1rem 0.5rem !important;
+            }
+            
+            .search-results {
+                padding: 0.5rem !important;
+            }
+            
+            /* Main page mobile dashboard */
+            .dashboard-stats {
+                flex-direction: column !important;
+                gap: 1rem !important;
+            }
+            
+            .stat-card {
+                width: 100% !important;
+                text-align: center !important;
+                padding: 1.5rem !important;
+            }
+            
+            /* Force viewport width containment */
+            * {
+                max-width: 100vw !important;
+                box-sizing: border-box !important;
+            }
+            
+            /* Prevent horizontal overflow */
+            body, html {
+                overflow-x: hidden !important;
+                width: 100% !important;
+            }
+            
+            .container, .container.is-fluid {
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+        }
+        
+        /* Touch-friendly hover states for mobile */
+        @media screen and (max-width: 768px) {
+            .button:active {
+                transform: scale(0.98) !important;
+                transition: transform 0.1s ease !important;
+            }
+            
+            .is-clickable:active {
+                opacity: 0.8 !important;
+                transition: opacity 0.1s ease !important;
+            }
+        }
+        
+        /* Mobile-specific utility classes */
+        @media screen and (max-width: 768px) {
+            .is-hidden-mobile {
+                display: none !important;
+            }
+            
+            .is-fullwidth-mobile {
+                width: 100% !important;
+            }
+            
+            .has-text-centered-mobile {
+                text-align: center !important;
+            }
+            
+            .p-mobile-1 {
+                padding: 0.5rem !important;
+            }
+            
+            .m-mobile-1 {
+                margin: 0.5rem !important;
+            }
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <nav class="navbar is-primary is-mobile" role="navigation" aria-label="main navigation">
+        <div class="navbar-brand">
+            <div class="navbar-item">
+                <h1 class="title is-4 has-text-white">CCA Library</h1>
+            </div>
+            
+            <!-- Hamburger menu button for mobile -->
+            <a role="button" class="navbar-burger has-text-white" aria-label="menu" aria-expanded="false" data-target="navbarMenu">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+        
+        <div id="navbarMenu" class="navbar-menu">
+            <div class="navbar-start">
+                <!-- Settings (Cog) -->
+                <a href="{{ url_for('settings') }}" class="navbar-item" title="Settings">
+                    <span class="icon">
+                        <i class="fas fa-cog"></i>
+                    </span>
+                </a>
+                
+                <!-- Dashboard -->
+                <a href="{{ url_for('main_page') }}" class="navbar-item">
+                    <span class="icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </span>
+                    <span>Dashboard</span>
+                </a>
+                
+                <!-- Search -->
+                <a href="{{ url_for('class_search') }}" class="navbar-item">
+                    <span class="icon">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <span>Search</span>
+                </a>
+                
+                <!-- Classes Dropdown -->
+                <div class="navbar-item has-dropdown" id="classes-dropdown">
+                    <a class="navbar-link" id="classes-dropdown-link">
+                        <span class="icon">
+                            <i class="fas fa-users"></i>
+                        </span>
+                        <span>Classes</span>
+                    </a>
+                    <div class="navbar-dropdown">
+                        {% for class in classes %}
+                        <a href="{{ url_for('class_detail', class_name=class.name|urlencode) }}" class="navbar-item">
+                            {{ class.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="navbar-end">
+                {% if current_user %}
+                    <!-- User info -->
+                    <div class="navbar-item">
+                        <div class="field has-addons">
+                            <div class="control">
+                                <span class="button is-static is-small">
+                                    <span class="icon">
+                                        <i class="fas fa-user"></i>
+                                    </span>
+                                    <span>{{ current_user.email }}</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Logout -->
+                    <a href="{{ url_for('logout') }}" class="navbar-item has-text-danger" title="Logout">
+                        <span class="icon">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </span>
+                        <span>Logout</span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Flash Messages -->
+    <div class="container is-fluid">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div style="padding: 1rem 0;">
+                    {% for category, message in messages %}
+                        <div class="notification is-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' if category == 'info' else 'warning' }}">
+                            <button class="delete"></button>
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+    
+    <!-- Main Content -->
+    <div class="container is-fluid">
+        <main class="section">
+            {% block body %}{% endblock %}
+        </main>
+    </div>
+    
+    <!-- Custom Confirmation Modal -->
+    <div class="modal" id="confirmation-modal">
+        <div class="modal-background"></div>
+        <div class="modal-card" style="width: 400px; max-width: 90vw;">
+            <header class="modal-card-head">
+                <p class="modal-card-title" id="confirmation-title">Confirm Action</p>
+                <button class="delete" aria-label="close" id="close-confirmation-btn"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="content">
+                    <p id="confirmation-message">Are you sure you want to proceed?</p>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" id="confirm-yes-btn">Yes</button>
+                <button class="button" id="confirm-no-btn">Cancel</button>
+            </footer>
+        </div>
+    </div>
+    
+    <!-- Mobile Warning Modal -->
+    <div class="modal" id="mobile-warning-modal">
+        <div class="modal-background"></div>
+        <div class="modal-card" style="width: 400px; max-width: 90vw;">
+            <header class="modal-card-head has-background-warning">
+                <p class="modal-card-title has-text-dark">
+                    <i class="fas fa-exclamation-triangle"></i> Mobile Warning
+                </p>
+                <button class="delete" aria-label="close" id="close-mobile-warning-btn"></button>
+            </header>
+            <section class="modal-card-body">
+                <div class="content">
+                    <p class="has-text-weight-semibold">This app was not made for mobile use - use at your own risk!</p>
+                    <p class="is-size-7">The interface may not work properly on mobile devices. For the best experience, please use a desktop or laptop computer.</p>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-warning has-text-dark" id="mobile-warning-ok-btn">
+                    <i class="fas fa-check"></i> I Understand
+                </button>
+            </footer>
+        </div>
+    </div>
+    
+    <!-- JavaScript for mobile navbar and custom confirmation -->
+    <script>
+        // Mobile detection and warning system
+        function isMobileDevice() {
+            return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1) || 
+                   /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   window.innerWidth <= 768;
+        }
+        
+        function showMobileWarning() {
+            // Check if we've already shown the warning
+            if (localStorage.getItem('mobile-warning-shown') === 'true') {
+                return;
+            }
+            
+            // Only show on mobile devices
+            if (isMobileDevice()) {
+                document.getElementById('mobile-warning-modal').classList.add('is-active');
+            }
+        }
+        
+        function closeMobileWarning() {
+            document.getElementById('mobile-warning-modal').classList.remove('is-active');
+            localStorage.setItem('mobile-warning-shown', 'true');
+        }
+        
+        // Global confirmation system
+        let confirmationCallback = null;
+        
+        function showConfirmation(title, message, callback) {
+            document.getElementById('confirmation-title').textContent = title;
+            document.getElementById('confirmation-message').textContent = message;
+            confirmationCallback = callback;
+            document.getElementById('confirmation-modal').classList.add('is-active');
+            
+            // Focus the modal for keyboard interaction
+            document.getElementById('confirmation-modal').focus();
+        }
+        
+        function closeConfirmation() {
+            document.getElementById('confirmation-modal').classList.remove('is-active');
+            confirmationCallback = null;
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Show mobile warning on first visit
+            showMobileWarning();
+            
+            // Hamburger menu functionality
+            const navbarBurgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
+            
+            if (navbarBurgers.length > 0) {
+                navbarBurgers.forEach(el => {
+                    el.addEventListener('click', () => {
+                        const target = el.dataset.target;
+                        const targetElement = document.getElementById(target);
+                        
+                        el.classList.toggle('is-active');
+                        targetElement.classList.toggle('is-active');
+                        
+                        // Close classes dropdown when hamburger menu is toggled
+                        const classesDropdown = document.getElementById('classes-dropdown');
+                        if (classesDropdown && !targetElement.classList.contains('is-active')) {
+                            classesDropdown.classList.remove('is-active');
+                        }
+                    });
+                });
+            }
+            
+            // Classes dropdown functionality
+            const classesDropdown = document.getElementById('classes-dropdown');
+            const classesDropdownLink = document.getElementById('classes-dropdown-link');
+            
+            if (classesDropdown && classesDropdownLink) {
+                // Handle both click and touch events for better mobile support
+                ['click', 'touchstart'].forEach(eventType => {
+                    classesDropdownLink.addEventListener(eventType, (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        classesDropdown.classList.toggle('is-active');
+                    });
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!classesDropdown.contains(e.target)) {
+                        classesDropdown.classList.remove('is-active');
+                    }
+                });
+                
+                // Close dropdown when touching outside on mobile
+                document.addEventListener('touchstart', (e) => {
+                    if (!classesDropdown.contains(e.target)) {
+                        classesDropdown.classList.remove('is-active');
+                    }
+                });
+                
+                // Close dropdown when a class link is clicked
+                const classLinks = classesDropdown.querySelectorAll('.navbar-dropdown .navbar-item');
+                classLinks.forEach(link => {
+                    link.addEventListener('click', () => {
+                        classesDropdown.classList.remove('is-active');
+                        // Also close the mobile menu
+                        const navbarMenu = document.getElementById('navbarMenu');
+                        const navbarBurger = document.querySelector('.navbar-burger');
+                        if (navbarMenu && navbarBurger) {
+                            navbarMenu.classList.remove('is-active');
+                            navbarBurger.classList.remove('is-active');
+                        }
+                    });
+                });
+            }
+            
+            // Custom confirmation modal handlers
+            document.getElementById('confirm-yes-btn').addEventListener('click', () => {
+                if (confirmationCallback) {
+                    confirmationCallback();
+                }
+                closeConfirmation();
+            });
+
+            document.getElementById('confirm-no-btn').addEventListener('click', closeConfirmation);
+            document.getElementById('close-confirmation-btn').addEventListener('click', closeConfirmation);
+            
+            // Mobile warning modal handlers
+            document.getElementById('mobile-warning-ok-btn').addEventListener('click', closeMobileWarning);
+            document.getElementById('close-mobile-warning-btn').addEventListener('click', closeMobileWarning);
+
+            // Close modal on background click
+            document.querySelector('#confirmation-modal .modal-background').addEventListener('click', closeConfirmation);
+            
+            // Handle keyboard events for confirmation modal
+            document.addEventListener('keydown', (e) => {
+                const modal = document.getElementById('confirmation-modal');
+                if (modal.classList.contains('is-active')) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (confirmationCallback) {
+                            confirmationCallback();
+                        }
+                        closeConfirmation();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeConfirmation();
+                    }
+                }
+            });
+            
+            // Flash message auto-hide and delete functionality
+            const notifications = document.querySelectorAll('.notification');
+            notifications.forEach(notification => {
+                const deleteButton = notification.querySelector('.delete');
+                if (deleteButton) {
+                    deleteButton.addEventListener('click', () => {
+                        notification.remove();
+                    });
+                }
+
+                // Auto-hide success and info messages after 5 seconds
+                if (notification.classList.contains('is-success') || notification.classList.contains('is-info')) {
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 5000);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

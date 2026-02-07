@@ -1,0 +1,732 @@
+{% extends "base.html" %}
+{% block body %}
+
+
+<div class="container">
+    <div class="columns is-multiline is-vcentered is-mobile m-1">
+        <div class="column is-narrow">
+            <div class="box has-background-primary p-2" style="display: inline-block; width: fit-content;">
+                <div class="columns is-vcentered is-mobile">
+                    <div class="column is-narrow">
+                        <button class="button" id="add-book-btn" type="button">
+                            <span class="icon">
+                                <i class="fas fa-book"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="column mr-4">
+                        <strong class="has-text-white is-vcentered">ADD BOOK</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="column is-narrow">
+            <div class="box has-background-primary p-2" style="display: inline-block; width: fit-content;">
+                <div class="columns is-vcentered is-mobile">
+                    <div class="column is-narrow">
+                        <button class="button" id="add-student-btn" type="button">
+                            <span class="icon">
+                                <i class="fas fa-user-plus"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="column mr-4">
+                        <strong class="has-text-white is-vcentered">ADD STUDENT</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="column is-narrow">
+            <div class="box has-background-primary p-2" style="display: inline-block; width: fit-content;">
+                <div class="columns is-vcentered is-mobile">
+                    <div class="column is-narrow">
+                        <button class="button" id="add-checkout-btn" type="button">+</button>
+                    </div>
+                    <div class="column mr-4">
+                        <strong class="has-text-white is-vcentered">ADD CHECKOUT</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="column is-narrow">
+            <div class="box has-background-primary p-2" style="display: inline-block; width: fit-content;">
+                <div class="columns is-vcentered is-mobile">
+                    <div class="column is-narrow">
+                        <button class="button" id="generate-barcode-btn" type="button">
+                            <span class="icon">
+                                <i class="fas fa-barcode"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="column mr-4">
+                        <strong class="has-text-white is-vcentered">GENERATE BARCODE</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="custom-modal">
+    <div class="modal-background"></div>
+    <div class="modal-card" style="width: 400px; max-width: 90vw;">
+        <header class="modal-card-head">
+            <p class="modal-card-title" id="modal-title">Add Book</p>
+            <button class="delete" aria-label="close" id="close-modal-btn"></button>
+        </header>
+        <section class="modal-card-body">
+            <form id="add-book-form" style="display:none;">
+                <div class="field">
+                    <label class="label">Title</label>
+                    <div class="control"><input class="input is-primary" type="text" name="title" required></div>
+                </div>
+                <div class="field">
+                    <label class="label">Subtitle</label>
+                    <div class="control"><input class="input is-primary" type="text" name="subtitle"></div>
+                </div>
+                <div class="field">
+                    <label class="label">Author</label>
+                    <div class="control"><input class="input is-primary" type="text" name="author" required></div>
+                </div>
+                <div class="field">
+                    <label class="label">Publisher</label>
+                    <div class="control"><input class="input is-primary" type="text" name="publisher"></div>
+                </div>
+                <div class="field">
+                    <label class="label">Published Date</label>
+                    <div class="control"><input class="input is-primary" type="date" name="published_date"></div>
+                </div>
+                <div class="field">
+                    <label class="label">ISBN</label>
+                    <div class="control"><input class="input is-primary" type="text" name="isbn"></div>
+                </div>
+                <div class="field">
+                    <label class="label">Local Number</label>
+                    <div class="control"><input class="input is-primary" type="text" name="localnumber"></div>
+                </div>
+                <div class="field">
+                    <label class="label">Call 1</label>
+                    <div class="control"><input class="input is-primary" type="text" name="call1"></div>
+                </div>
+                <div class="field">
+                    <label class="label">Call 2</label>
+                    <div class="control"><input class="input is-primary" type="text" name="call2"></div>
+                </div>
+                <div class="field">
+                    <label class="label">Location</label>
+                    <div class="control"><input class="input is-primary" type="text" name="location"></div>
+                </div>
+            </form>
+            <form id="add-student-form" style="display:none;">
+                <div class="field">
+                    <label class="label">Student Name</label>
+                    <div class="control"><input class="input is-primary" type="text" name="name" required></div>
+                </div>
+                <div class="field">
+                    <label class="label">Class (Optional)</label>
+                    <div class="control">
+                        <select class="input is-primary" name="class_id">
+                            <option value="">No class assigned</option>
+                            {% for c in classes %}
+                                <option value="{{ c['id'] }}">{{ c['name'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <p class="help has-text-grey">You can assign students to classes later through Class Management.</p>
+                </div>
+            </form>
+            <form id="add-checkout-form" style="display:none;">
+                <div class="field">
+                    <label class="label">Student</label>
+                    <div class="control">
+                        <input class="input is-primary" type="text" id="student-search" placeholder="Search for student..." autocomplete="off">
+                        <input type="hidden" name="student_id" id="selected-student-id">
+                        <div id="student-results" class="box" style="display:none; max-height: 150px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Book</label>
+                    <div class="control">
+                        <input class="input is-primary" type="text" id="book-search" placeholder="Search for book..." autocomplete="off">
+                        <input type="hidden" name="book_title" id="selected-book-title">
+                        <div id="book-results" class="box" style="display:none; max-height: 150px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="label">Checkout Date</label>
+                    <div class="control"><input class="input is-primary" type="date" name="checkout_date" required></div>
+                </div>
+            </form>
+            <form id="generate-barcode-form" style="display:none;">
+                <div class="field">
+                    <label class="label">Select Book for Barcode (Local Number)</label>
+                    <div class="control">
+                        <input class="input is-primary" type="text" id="barcode-book-search" placeholder="Search for book..." autocomplete="off">
+                        <input type="hidden" name="selected_book" id="selected-barcode-book">
+                        <div id="barcode-book-results" class="box" style="display:none; max-height: 150px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+                <div class="field" id="barcode-preview" style="display:none;">
+                    <label class="label">Barcode Preview</label>
+                    <div class="control">
+                        <canvas id="barcode-canvas" width="300" height="100" style="border: 1px solid #ccc; background: white;"></canvas>
+                    </div>
+                </div>
+                <div class="field" id="barcode-display" style="display:none;">
+                    <label class="label">Generated Barcode (Right-click to copy image)</label>
+                    <div class="control" style="text-align: center;">
+                        <img id="barcode-image" style="border: 2px solid #3273dc; padding: 10px; background: white; max-width: 100%;" />
+                        <p class="help has-text-grey">Right-click the barcode image above and select "Copy image" to use it elsewhere.</p>
+                    </div>
+                </div>
+            </form>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-primary" id="modal-save-btn" type="button">Save</button>
+            <button class="button" id="modal-cancel-btn" style="margin-left: 1rem;">Cancel</button>
+        </footer>
+    </div>
+</div>
+
+<!-- Outstanding Books Section -->
+<div class="columns is-gapless" style="margin-top: 2rem;">
+    <div class="column is-10 section py-3 px-5 ml-3" style="color: white; min-width: 250px;">
+        <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
+            <h2 class="title is-4 has-text-white mb-0">Outstanding Books</h2>
+            <div class="field">
+                <div class="control has-icons-left">
+                    <input class="input is-primary" type="text" id="checkout-search" placeholder="Search...">
+                    <span class="icon is-left has-text-primary">
+                        <i class="fas fa-search"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% if outstanding_books %}
+        <table class="table is-fullwidth section has-text-white is-rounded" style="border-radius: 1rem; overflow: hidden;">
+            <tbody id="checkout-table-body">
+            {% for c in outstanding_books %}
+                <tr class="checkout-row" 
+                    data-title="{{ c['title'] | lower }}" 
+                    data-student="{{ c['student_name'] | lower }}" 
+                    data-checkout-date="{{ c['checkout_date'] }}" 
+                    data-due-date="{{ c['checkout_date'] | due_date }}">
+                    <td colspan="3" style="padding:0; border:none; background:none;">
+                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
+                            <div style="flex:1.7; background: linear-gradient(90deg, #14161a 0%, var(--bulma-danger) 100%); padding:0.5rem 1rem; border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; display: flex; align-items: center; min-width: 0;">
+                                <div style="flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 1rem;">
+                                    <a href="/book/{{ c['localnumber'] | urlencode }}" class="has-text-white has-text-weight-semibold">{{ c['title'] }}</a>
+                                </div>
+                                <div style="flex-shrink: 0; text-align: center; margin: 0 1rem;" title="Checked out: {{ c['checkout_date'] | nice_date }}">
+                                    <div class="has-tooltip">{{ c['checkout_date'] | due_date }}</div>
+                                </div>
+                                <div style="flex: 1; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 1rem;">
+                                    <a href="/student/{{ c['student_fax_id'] }}" class="has-text-white has-text-weight-semibold">{{ c['student_name'] }}</a>
+                                </div>
+                            </div>
+                            <form method="POST" action="/return_book" style="margin: 0; flex: 0.3;" onsubmit="return handleReturnBook(this, event);">
+                                <input type="hidden" name="checkout_id" value="{{ c['checkout_id'] }}">
+                                <input type="hidden" name="redirect_url" value="{{ request.url }}">
+                                <button type="submit" class="has-background-primary has-text-white has-text-weight-semibold" style="width: 100%; height: 100%; background: transparent; border: none; padding: 0.5rem; border-top-right-radius: 0.75rem; border-bottom-right-radius: 0.75rem; display: flex; align-items: center; justify-content: center; cursor: pointer;" title="Return this book">
+                                    <span class="icon"><i class="fas fa-check"></i></span>
+                                    <span>Return</span>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <div id="no-results" style="display: none;">
+            <p class="has-text-white">No checkouts match your search.</p>
+        </div>
+        {% else %}
+        <p class="has-text-white">No outstanding books.</p>
+        {% endif %}
+    </div>
+    <div class="column section py-3 px-3" style="display:flex;align-items:center;justify-content:end; min-width: 80px;">
+        <span class="icon is-large has-text-primary">
+            <i class="fas fa-clock fa-3x"></i>
+        </span>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('custom-modal');
+    const addBookBtn = document.getElementById('add-book-btn');
+    const addStudentBtn = document.getElementById('add-student-btn');
+    const addCheckoutBtn = document.getElementById('add-checkout-btn');
+    const generateBarcodeBtn = document.getElementById('generate-barcode-btn');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const cancelModalBtn = document.getElementById('modal-cancel-btn');
+    const modalTitle = document.getElementById('modal-title');
+    const modalContent = document.getElementById('modal-content');
+    const addBookForm = document.getElementById('add-book-form');
+    const modalSaveBtn = document.getElementById('modal-save-btn');
+    const addStudentForm = document.getElementById('add-student-form');
+    const addCheckoutForm = document.getElementById('add-checkout-form');
+    const generateBarcodeForm = document.getElementById('generate-barcode-form');
+
+    function openModal(title) {
+        modal.classList.add('is-active');
+        modalTitle.textContent = title;
+        // Show correct form
+        if (title === 'Add Book') {
+            addBookForm.style.display = '';
+            addStudentForm.style.display = 'none';
+            addCheckoutForm.style.display = 'none';
+            generateBarcodeForm.style.display = 'none';
+            modalSaveBtn.textContent = 'Save';
+        } else if (title === 'Add Student') {
+            addBookForm.style.display = 'none';
+            addStudentForm.style.display = '';
+            addCheckoutForm.style.display = 'none';
+            generateBarcodeForm.style.display = 'none';
+            modalSaveBtn.textContent = 'Save';
+        } else if (title === 'Add Checkout') {
+            addBookForm.style.display = 'none';
+            addStudentForm.style.display = 'none';
+            addCheckoutForm.style.display = '';
+            generateBarcodeForm.style.display = 'none';
+            modalSaveBtn.textContent = 'Save';
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            addCheckoutForm.querySelector('[name="checkout_date"]').value = today;
+        } else if (title === 'Generate Barcode') {
+            addBookForm.style.display = 'none';
+            addStudentForm.style.display = 'none';
+            addCheckoutForm.style.display = 'none';
+            generateBarcodeForm.style.display = '';
+            modalSaveBtn.textContent = 'Generate & Display';
+            // Reset barcode display section and form
+            document.getElementById('barcode-display').style.display = 'none';
+            document.getElementById('barcode-preview').style.display = 'none';
+            generateBarcodeForm.reset();
+            document.getElementById('selected-barcode-book').value = '';
+        }
+    }
+    function closeModal() {
+        modal.classList.remove('is-active');
+    }
+
+    addBookBtn.addEventListener('click', function() {
+        openModal('Add Book');
+    });
+    addStudentBtn.addEventListener('click', function() {
+        openModal('Add Student');
+    });
+    addCheckoutBtn.addEventListener('click', function() {
+        openModal('Add Checkout');
+    });
+    generateBarcodeBtn.addEventListener('click', function() {
+        openModal('Generate Barcode');
+    });
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelModalBtn.addEventListener('click', closeModal);
+    modal.querySelector('.modal-background').addEventListener('click', closeModal);
+
+    // ISBN autofill logic
+    const isbnInput = addBookForm.querySelector('input[name="isbn"]');
+    if (isbnInput) {
+        isbnInput.addEventListener('blur', function() {
+            const isbn = isbnInput.value.trim();
+            if (!isbn) return;
+            fetch('/lookup_isbn', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isbn })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('ISBN lookup response:', data);
+                if (data.success && data.data) {
+                    let filled = false;
+                    Object.entries(data.data).forEach(([key, value]) => {
+                        const field = addBookForm.querySelector(`[name="${key}"]`);
+                        if (field && !field.value) {
+                            field.value = value;
+                            filled = true;
+                        }
+                    });
+                    if (!filled) {
+                        alert('No empty fields to fill or no matching fields found.');
+                    }
+                } else {
+                    alert('No data found for this ISBN.');
+                }
+            });
+        });
+    }
+
+    modalSaveBtn.addEventListener('click', function() {
+        if (modalTitle.textContent === 'Add Book') {
+            const formData = {};
+            Array.from(addBookForm.elements).forEach(function(el) {
+                if (el.name) formData[el.name] = el.value;
+            });
+            fetch('/add_book', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal();
+                    addBookForm.reset();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(() => {
+                alert('Failed to save book.');
+            });
+        } else if (modalTitle.textContent === 'Add Student') {
+            const formData = {};
+            Array.from(addStudentForm.elements).forEach(function(el) {
+                if (el.name) formData[el.name] = el.value;
+            });
+            fetch('/add_student', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal();
+                    addStudentForm.reset();
+                    location.reload(); // Reload to show the new student
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(() => {
+                alert('Failed to save student.');
+            });
+        } else if (modalTitle.textContent === 'Add Checkout') {
+            const formData = {};
+            Array.from(addCheckoutForm.elements).forEach(function(el) {
+                if (el.name) formData[el.name] = el.value;
+            });
+            if (!formData.student_id || !formData.book_title) {
+                alert('Please select both a student and a book.');
+                return;
+            }
+            fetch('/add_checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal();
+                    addCheckoutForm.reset();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(() => {
+                alert('Failed to save checkout.');
+            });
+        } else if (modalTitle.textContent === 'Generate Barcode') {
+            // Display the barcode image
+            displayBarcode();
+        }
+    });
+
+    // Student search functionality
+    const studentSearch = document.getElementById('student-search');
+    const studentResults = document.getElementById('student-results');
+    const selectedStudentId = document.getElementById('selected-student-id');
+    
+    if (studentSearch) {
+        studentSearch.addEventListener('input', function() {
+            console.log('Student search triggered:', studentSearch.value);
+            const query = studentSearch.value.trim();
+            if (query.length < 2) {
+                studentResults.style.display = 'none';
+                return;
+            }
+            fetch(`/search_students?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Student search results:', data);
+                    if (data.length > 0) {
+                        studentResults.innerHTML = data.map(s => 
+                            `<div class="student-option" data-id="${s.id}" style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #6a9a75; background: #2b2d31; color: white;">${s.name} (${s.fax_id})</div>`
+                        ).join('');
+                        studentResults.style.display = 'block';
+                    } else {
+                        studentResults.style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.error('Student search error:', err);
+                });
+        });
+        
+        studentResults.addEventListener('click', function(e) {
+            if (e.target.classList.contains('student-option')) {
+                studentSearch.value = e.target.textContent;
+                selectedStudentId.value = e.target.dataset.id;
+                studentResults.style.display = 'none';
+            }
+        });
+    }
+
+    // Book search functionality
+    const bookSearch = document.getElementById('book-search');
+    const bookResults = document.getElementById('book-results');
+    const selectedBookTitle = document.getElementById('selected-book-title');
+    
+    if (bookSearch) {
+        bookSearch.addEventListener('input', function() {
+            console.log('Book search triggered:', bookSearch.value);
+            const query = bookSearch.value.trim();
+            if (query.length < 2) {
+                bookResults.style.display = 'none';
+                return;
+            }
+            fetch(`/search_books?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Book search results:', data);
+                    if (data.length > 0) {
+                        bookResults.innerHTML = data.map(b => 
+                            `<div class="book-option" data-title="${b.title}" style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #6a9a75; background: #2b2d31; color: white;">${b.title} by ${b.author}</div>`
+                        ).join('');
+                        bookResults.style.display = 'block';
+                    } else {
+                        bookResults.style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.error('Book search error:', err);
+                });
+        });
+        
+        bookResults.addEventListener('click', function(e) {
+            if (e.target.classList.contains('book-option')) {
+                bookSearch.value = e.target.textContent;
+                selectedBookTitle.value = e.target.dataset.title;
+                bookResults.style.display = 'none';
+            }
+        });
+    }
+
+    // Barcode book search functionality
+    const barcodeBookSearch = document.getElementById('barcode-book-search');
+    const barcodeBookResults = document.getElementById('barcode-book-results');
+    const selectedBarcodeBook = document.getElementById('selected-barcode-book');
+    
+    if (barcodeBookSearch) {
+        barcodeBookSearch.addEventListener('input', function() {
+            const query = barcodeBookSearch.value.trim();
+            if (query.length < 2) {
+                barcodeBookResults.style.display = 'none';
+                return;
+            }
+            fetch(`/search_books?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        barcodeBookResults.innerHTML = data.map(b => 
+                            `<div class="barcode-book-option" 
+                                data-title="${b.title}" 
+                                data-localnumber="${b.localnumber || ''}"
+                                style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #6a9a75; background: #2b2d31; color: white;">
+                                ${b.title} by ${b.author}
+                                ${b.localnumber ? ` (Local #: ${b.localnumber})` : ' (No Local Number)'}
+                            </div>`
+                        ).join('');
+                        barcodeBookResults.style.display = 'block';
+                    } else {
+                        barcodeBookResults.style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.error('Barcode book search error:', err);
+                });
+        });
+        
+        barcodeBookResults.addEventListener('click', function(e) {
+            if (e.target.classList.contains('barcode-book-option')) {
+                barcodeBookSearch.value = e.target.textContent.trim();
+                const bookData = {
+                    title: e.target.dataset.title,
+                    localnumber: e.target.dataset.localnumber
+                };
+                selectedBarcodeBook.value = JSON.stringify(bookData);
+                barcodeBookResults.style.display = 'none';
+                
+                // Show barcode preview and generate it
+                document.getElementById('barcode-preview').style.display = 'block';
+                generateBarcodePreview(bookData);
+            }
+        });
+    }
+
+    // Barcode generation functions
+    function generateBarcodePreview(bookData) {
+        let barcodeText = bookData.localnumber || 'NO_LOCAL_NUM';
+        
+        // Clean the local number - JsBarcode will handle validation
+        barcodeText = barcodeText.toString().trim() || 'NO_LOCAL_NUM';
+        
+        drawBarcode(barcodeText);
+    }
+
+    function drawBarcode(text) {
+        const canvas = document.getElementById('barcode-canvas');
+        
+        try {
+            // Clear canvas first
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Generate barcode using JsBarcode
+            JsBarcode(canvas, text, {
+                format: "CODE39",
+                width: 2,
+                height: 60,
+                displayValue: true,
+                fontSize: 12,
+                margin: 10,
+                background: "#ffffff",
+                lineColor: "#000000"
+            });
+        } catch (error) {
+            // Handle invalid barcode data
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Invalid barcode data', canvas.width / 2, canvas.height / 2);
+        }
+    }
+
+    function displayBarcode() {
+        const canvas = document.getElementById('barcode-canvas');
+        const selectedBook = JSON.parse(selectedBarcodeBook.value || '{}');
+        const barcodeImage = document.getElementById('barcode-image');
+        
+        if (!selectedBook.title) {
+            alert('Please select a book first.');
+            return;
+        }
+        
+        // Convert canvas to data URL and display as image
+        const dataURL = canvas.toDataURL('image/png');
+        barcodeImage.src = dataURL;
+        
+        // Show the barcode display section
+        document.getElementById('barcode-display').style.display = 'block';
+        
+        // Close modal after showing barcode
+        closeModal();
+    }
+
+    // Checkout search functionality
+    const checkoutSearch = document.getElementById('checkout-search');
+    if (checkoutSearch) {
+        checkoutSearch.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const rows = document.querySelectorAll('.checkout-row');
+            const noResults = document.getElementById('no-results');
+            const tableBody = document.getElementById('checkout-table-body');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const title = row.dataset.title;
+                const student = row.dataset.student;
+                const checkoutDate = row.dataset.checkoutDate;
+                const dueDate = row.dataset.dueDate.toLowerCase();
+
+                const matches = title.includes(searchTerm) || 
+                               student.includes(searchTerm) || 
+                               checkoutDate.includes(searchTerm) ||
+                               dueDate.includes(searchTerm);
+
+                if (matches) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Show/hide no results message
+            if (visibleCount === 0 && searchTerm.length > 0 && rows.length > 0) {
+                noResults.style.display = 'block';
+                tableBody.style.display = 'none';
+            } else {
+                noResults.style.display = 'none';
+                tableBody.style.display = '';
+            }
+        });
+    }
+});
+
+function handleReturnBook(form, event) {
+    event.preventDefault();
+    
+    const checkoutId = form.querySelector('[name="checkout_id"]').value;
+    const bookTitle = form.closest('tr').querySelector('a[href*="/book/"]').textContent;
+    const studentName = form.closest('tr').querySelector('a[href*="/student/"]').textContent;
+    
+    showConfirmation('Return Book', `Are you sure you want to return "${bookTitle}" from "${studentName}"?`, () => {
+        // Immediately remove the row for responsive UI
+        const row = form.closest('tr');
+        const originalRow = row.cloneNode(true);
+        row.style.opacity = '0.5';
+        row.style.transition = 'opacity 0.3s';
+        
+        setTimeout(() => {
+            row.remove();
+            
+            // Check if no books are left and show message
+            const tbody = document.querySelector('.table tbody');
+            if (tbody && tbody.children.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3"><p class="has-text-white" style="text-align: center; padding: 2rem;">No outstanding books.</p></td></tr>';
+            }
+        }, 300);
+        
+        // Submit to server
+        fetch('/return_book', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new URLSearchParams(new FormData(form))
+        })
+        .catch(error => {
+            console.error('Return book error:', error);
+            // If server request fails, restore the row
+            setTimeout(() => {
+                if (document.querySelector('.table tbody').children.length === 1 && 
+                    document.querySelector('.table tbody').textContent.includes('No outstanding books')) {
+                    document.querySelector('.table tbody').innerHTML = '';
+                }
+                document.querySelector('.table tbody').appendChild(originalRow);
+                alert('Failed to return book. Please try again.');
+            }, 100);
+        });
+    });
+    
+    return false;
+}
+</script>
+{% endblock %}

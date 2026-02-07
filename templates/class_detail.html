@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <title>{{ class_info.name }} - Class Details</title>
+{% endblock %}
+
+{% block body %}
+<div style="display: flex; min-height: 220px; border-radius: 1rem; overflow: hidden; align-items: stretch;">
+    <div class="has-background-primary is-flex" style="color: white; min-width: 250px; flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
+        <div style="width:100%; text-align:left; padding-left:2rem;">
+            <div class="block">
+            <h1 class="title is-2 has-text-weight-semibold">{{ class_info.name }}</h1>
+            </div>
+            {% if class_info.teacher_name %}
+            <div class="block">
+                <h3 class="subtitle is-3 has-text-black has-text-weight-semibold">{{ class_info.teacher_name }}</h3>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="section p-0" style="flex: 7;">
+        <div style="width:100%; height:100%; background: linear-gradient(270deg, #14161a 0%, #6a9a75 100%); display: flex; align-items: center; justify-content: flex-end;">
+            <ul style="color: white; min-width: 180px; margin: 2rem;">
+                <li><strong>Students:</strong> {{ students|length }}</li>
+                {% if class_info.room %}
+                <li><strong>Room:</strong> {{ class_info.room }}</li>
+                {% endif %}
+                {% if class_info.schedule %}
+                <li><strong>Schedule:</strong> {{ class_info.schedule }}</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+<div class="columns is-gapless" style="margin-bottom: 0.5rem;">
+    <div class="column section" style="height:10px; padding:0;"></div>
+</div>
+<div class="columns is-gapless" style="margin-top: 0;">
+    <div class="column is-10 section py-3 px-5 ml-3" style="color: white; min-width: 250px;">
+        {% if students %}
+        <table class="table is-fullwidth section has-text-white is-rounded" style="border-radius: 1rem; overflow: hidden;">
+            <tbody>
+            {% for student in students %}
+                <tr>
+                    <td colspan="3" style="padding:0; border:none; background:none;">
+                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
+                            <div style="flex:1.7; background: linear-gradient(90deg, #14161a 0%, var(--bulma-primary) 100%); padding:0.5rem 1rem; border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="text-align: left;">
+                                    <a href="{{ url_for('student_detail', student_id=student.fax_id) }}" class="has-text-white has-text-weight-semibold">{{ student.name }}</a>
+                                </div>
+                                <div style="text-align: right;">
+ 
+                                </div>
+                            </div>
+                            <button type="button" class="has-background-primary has-text-white has-text-weight-semibold checkout-btn" data-student-id="{{ student.fax_id }}" data-student-name="{{ student.name }}" style="width: auto; height: 100%; background: transparent; border: none; padding: 0.5rem 1rem; border-top-right-radius: 0.75rem; border-bottom-right-radius: 0.75rem; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0.3;" title="Checkout book to this student">
+                                <span class="icon"><i class="fas fa-plus"></i></span>
+                                <span>Checkout</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No students are currently enrolled in this class.</p>
+        {% endif %}
+    </div>
+    <div class="column section py-3 px-3" style="display:flex;align-items:center;justify-content:end; min-width: 80px;">
+        <span class="icon is-large has-text-primary">
+            <i class="fas fa-users fa-3x"></i>
+        </span>
+    </div>
+</div>
+
+<!-- Checkout Modal -->
+<div class="modal" id="checkout-modal">
+    <div class="modal-background"></div>
+    <div class="modal-card" style="width: 400px; max-width: 90vw; min-height: 20rem;">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Checkout Book</p>
+            <button class="delete" aria-label="close" id="close-modal-btn"></button>
+        </header>
+        <section class="modal-card-body">
+            <form id="checkout-form">
+                <div class="field">
+                    <label class="label">Book Local Number</label>
+                    <div class="control">
+                        <input class="input is-primary" type="text" id="book-local-id" placeholder="Enter local number..." autocomplete="off">
+                    </div>
+                </div>
+                <div class="field" id="book-details" style="display:none;">
+                    <label class="label">Book Details</label>
+                    <div class="box">
+                        <p><strong>Title:</strong> <span id="book-title"></span></p>
+                        <p><strong>Subtitle:</strong> <span id="book-subtitle"></span></p>
+                        <p><strong>Author:</strong> <span id="book-author"></span></p>
+                    </div>
+                    <input type="hidden" name="book_title" id="selected-book-title">
+                </div>
+                <div class="field">
+                    <label class="label">Student</label>
+                    <div class="dropdown" id="student-dropdown">
+                        <div class="dropdown-trigger">
+                            <button class="button is-primary" aria-haspopup="true" aria-controls="dropdown-menu" type="button" id="student-dropdown-btn">
+                                <span id="selected-student-name">Select a student</span>
+                                <span class="icon is-small">
+                                    <i class="fas fa-angle-down" aria-hidden="true"></i>
+                                </span>
+                            </button>
+                        </div>
+                        <div class="dropdown-menu" id="dropdown-menu" role="menu" style="z-index: 9999; max-height: 200px; overflow-y: auto;">
+                            <div class="dropdown-content">
+                                {% for student in students %}
+                                <a href="#" class="dropdown-item student-option" data-student-name="{{ student.name }}">
+                                    {{ student.name }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="student_id" id="selected-student-id">
+                    <input type="hidden" name="checkout_date" id="checkout-date-hidden">
+                </div>
+            </form>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-primary" id="save-checkout-btn" type="button">Save</button>
+            <button class="button" id="cancel-checkout-btn" style="margin-left: 1rem;">Cancel</button>
+        </footer>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('checkout-modal');
+    const checkoutBtns = document.querySelectorAll('.checkout-btn');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const cancelCheckoutBtn = document.getElementById('cancel-checkout-btn');
+    const saveCheckoutBtn = document.getElementById('save-checkout-btn');
+    const checkoutForm = document.getElementById('checkout-form');
+    const bookLocalId = document.getElementById('book-local-id');
+    const bookDetails = document.getElementById('book-details');
+    const studentDropdown = document.getElementById('student-dropdown');
+    const studentDropdownBtn = document.getElementById('student-dropdown-btn');
+
+    // Handle student dropdown
+    studentDropdownBtn.addEventListener('click', function() {
+        const modalCard = document.querySelector('#checkout-modal .modal-card');
+        if (studentDropdown.classList.contains('is-active')) {
+            studentDropdown.classList.remove('is-active');
+            modalCard.style.minHeight = '500px';
+        } else {
+            studentDropdown.classList.add('is-active');
+            modalCard.style.minHeight = '600px';
+        }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!studentDropdown.contains(e.target)) {
+            const modalCard = document.querySelector('#checkout-modal .modal-card');
+            studentDropdown.classList.remove('is-active');
+            modalCard.style.minHeight = '500px';
+        }
+    });
+
+    // Handle student selection
+    document.querySelectorAll('.student-option').forEach(option => {
+        option.addEventListener('click', function(e) {
+            e.preventDefault();
+            const studentId = this.dataset.studentId;
+            const studentName = this.dataset.studentName;
+            
+            document.getElementById('selected-student-id').value = studentId;
+            document.getElementById('selected-student-name').textContent = studentName;
+            studentDropdown.classList.remove('is-active');
+        });
+    });
+
+    // Open modal when checkout button is clicked
+    checkoutBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const studentId = this.dataset.studentId;
+            const studentName = this.dataset.studentName;
+            
+            // Pre-select the student who was clicked
+            document.getElementById('selected-student-id').value = studentId;
+            document.getElementById('selected-student-name').textContent = studentName;
+            
+            // Set current date automatically
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('checkout-date-hidden').value = today;
+            
+            modal.classList.add('is-active');
+            
+            // Focus the book local ID input after modal animation
+            setTimeout(() => {
+                bookLocalId.focus();
+                bookLocalId.select();
+            }, 100);
+        });
+    });
+
+    // Close modal handlers
+    function closeModal() {
+        modal.classList.remove('is-active');
+        checkoutForm.reset();
+        bookDetails.style.display = 'none';
+        document.getElementById('selected-book-title').value = '';
+        document.getElementById('selected-student-name').textContent = 'Select a student';
+        studentDropdown.classList.remove('is-active');
+    }
+
+    closeModalBtn.addEventListener('click', closeModal);
+    cancelCheckoutBtn.addEventListener('click', closeModal);
+    modal.querySelector('.modal-background').addEventListener('click', closeModal);
+
+    // Book lookup by local ID functionality
+    let lookupTimeout;
+    bookLocalId.addEventListener('input', function() {
+        const localId = this.value.trim();
+        clearTimeout(lookupTimeout);
+        
+        if (localId.length < 1) {
+            bookDetails.style.display = 'none';
+            document.getElementById('selected-book-title').value = '';
+            return;
+        }
+
+        lookupTimeout = setTimeout(() => {
+            fetch(`/api/book/${encodeURIComponent(localId)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Book not found');
+                    }
+                    return response.json();
+                })
+                .then(book => {
+                    if (book.error) {
+                        throw new Error(book.error);
+                    }
+                    
+                    if (book.title) {
+                        const currentStudentFaxId = document.getElementById('selected-student-id').value;
+                        
+                        // Always reset and show the book details section
+                        const bookDetailsBox = bookDetails.querySelector('.box');
+                        bookDetailsBox.classList.remove('has-background-danger-light');
+                        bookDetailsBox.style.border = '';
+                        
+                        document.getElementById('book-title').textContent = book.title || 'N/A';
+                        document.getElementById('book-subtitle').textContent = book.subtitle || 'N/A';
+                        document.getElementById('book-author').textContent = book.author || 'N/A';
+                        document.getElementById('selected-book-title').value = book.title;
+                        
+                        // Check if book is already checked out
+                        if (book.checked_out && book.checked_out_to_fax_id !== currentStudentFaxId) {
+
+                            bookDetailsBox.style.border = '2px solid var(--bulma-danger)';
+                            bookDetailsBox.innerHTML = `
+                                <p class="has-text-danger"><strong>Title:</strong> <span>${book.title || 'N/A'}</span></p>
+                                <p class="has-text-danger"><strong>Subtitle:</strong> <span>${book.subtitle || 'N/A'}</span></p>
+                                <p class="has-text-danger"><strong>Author:</strong> <span>${book.author || 'N/A'}</span></p>
+                                <p class="has-text-danger"><strong>⚠️ Already checked out to:</strong> <span>${book.checked_out_to}</span></p>
+                            `;
+                        } else {
+                            // Book is available or checked out to same student - normal styling
+                            bookDetailsBox.innerHTML = `
+                                <p><strong>Title:</strong> <span>${book.title || 'N/A'}</span></p>
+                                <p><strong>Subtitle:</strong> <span>${book.subtitle || 'N/A'}</span></p>
+                                <p><strong>Author:</strong> <span>${book.author || 'N/A'}</span></p>
+                                ${book.checked_out && book.checked_out_to_fax_id === currentStudentFaxId ? '<p class="has-text-info"><strong>ℹ️ Currently checked out to this student</strong></p>' : ''}
+                            `;
+                        }
+                        
+                        bookDetails.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    // Reset all states on error
+                    bookDetails.style.display = 'none';
+                    document.getElementById('selected-book-title').value = '';
+                    const bookDetailsBox = bookDetails.querySelector('.box');
+                    bookDetailsBox.classList.remove('has-background-danger-light');
+                    bookDetailsBox.style.border = '';
+                    bookDetailsBox.innerHTML = `
+                        <p><strong>Title:</strong> <span></span></p>
+                        <p><strong>Subtitle:</strong> <span></span></p>
+                        <p><strong>Author:</strong> <span></span></p>
+                    `;
+                });
+        }, 500);
+    });
+
+    // Save checkout
+    saveCheckoutBtn.addEventListener('click', function() {
+        const formData = {
+            student_id: document.getElementById('selected-student-id').value,
+            book_title: document.getElementById('selected-book-title').value,
+            checkout_date: document.getElementById('checkout-date-hidden').value
+        };
+
+        if (!formData.student_id || !formData.book_title || !formData.checkout_date) {
+            alert('Please fill in all required fields');
+            return;
+        }
+
+        fetch('/add_checkout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeModal();
+                location.reload(); // Refresh to show updated data
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    });
+});
+</script>
+{% endblock %}

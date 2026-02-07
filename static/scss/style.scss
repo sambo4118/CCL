@@ -1,0 +1,119 @@
+
+$primary: #6c9a77;
+
+@use "../../node_modules/bulma/sass" with (
+    $primary: $primary
+);
+
+// Top Navigation Styling
+.navbar.is-primary {
+    background-color: $primary;
+}
+
+.navbar.is-primary .navbar-item,
+.navbar.is-primary .navbar-link {
+    color: white !important;
+    transition: background-color 0.2s ease;
+}
+
+.navbar.is-primary .navbar-item:hover,
+.navbar.is-primary .navbar-link:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+// Fix navbar dropdown styling
+.navbar.is-primary .navbar-item.has-dropdown:hover .navbar-link,
+.navbar.is-primary .navbar-item.has-dropdown.is-active .navbar-link {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+.navbar.is-primary .navbar-dropdown {
+    background-color: #363636 !important;
+    border-top: 1px solid #dbdbdb !important;
+}
+
+.navbar.is-primary .navbar-dropdown .navbar-item {
+    color: white !important;
+    background-color: #363636 !important;
+}
+
+.navbar.is-primary .navbar-dropdown .navbar-item:hover {
+    background-color: #4a4a4a !important;
+    color: white !important;
+}
+
+// Brand title styling
+.navbar-brand .title {
+    margin-bottom: 0 !important;
+}
+
+// Input styling - force primary color override
+.input.is-primary {
+    border-color: $primary !important;
+}
+
+.input.is-primary:focus {
+    border-color: $primary !important;
+    box-shadow: 0 0 0 0.125em rgba(108, 154, 119, 0.25) !important;
+}
+
+// Button styling - force primary color override
+.button.is-primary {
+    background-color: $primary !important;
+    border-color: $primary !important;
+    color: white !important;
+}
+
+.button.is-primary:hover {
+    background-color: darken($primary, 5%) !important;
+    border-color: darken($primary, 5%) !important;
+    color: white !important;
+}
+
+.button.is-primary:focus,
+.button.is-primary:active {
+    background-color: darken($primary, 10%) !important;
+    border-color: darken($primary, 10%) !important;
+    color: white !important;
+}
+
+// Mobile responsive fixes
+@media screen and (max-width: 768px) {
+    // Fix gap between solid primary background and gradient in detail page headers
+    .has-background-primary.is-flex {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    // Ensure no padding/margin on gradient section in header
+    .section.p-0 {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    // Ensure flex container has no gaps on mobile
+    div[style*="display: flex"][style*="border-radius: 1rem"] {
+        gap: 0 !important;
+    }
+    
+    // Force flex items to be flush against each other
+    div[style*="display: flex"][style*="border-radius: 1rem"] > div {
+        margin: 0 !important;
+        border: none !important;
+    }
+    
+    // Reduce gap between header and content on detail pages for mobile
+    .columns.is-gapless .column.section[style*="height:10px"] {
+        height: 3px !important;
+        margin-bottom: 0.25rem !important;
+    }
+    
+    // Adjust margin for gap columns on mobile
+    .columns.is-gapless[style*="margin-bottom: 0.5rem"] {
+        margin-bottom: 0.25rem !important;
+    }
+}
+
+

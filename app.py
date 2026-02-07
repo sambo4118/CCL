@@ -1,0 +1,1242 @@
+# a change 
+
+import re
+import requests
+from urllib.parse import quote
+from datetime import datetime, timedelta
+import sqlite3
+import pathlib
+import pandas
+import subprocess
+import tempfile
+import os
+import sys
+import random
+import shutil
+import gzip
+import json
+import atexit
+from threading import Thread
+from flask import Flask, render_template, request, redirect, jsonify, send_file
+from urllib.parse import quote, unquote
+
+app = Flask(__name__)
+
+# check that database exists
+try:
+    db_path = pathlib.Path(__file__).parent / 'library.db'
+    conn = sqlite3.connect(str(db_path))
+    conn.close()
+except:
+    print("Failed to connect to database")
+
+#allow regex search in templates
+@app.template_filter('regex_search')
+def regex_search_filter(s, pattern):
+    if not s:
+        return False
+    return re.search(pattern, str(s)) is not None
+
+# encode URL's for generated sitewide links
+@app.template_filter('urlencode')
+def urlencode_filter(s):
+    return quote(str(s)) if s is not None else ''
+
+# format due dates for display
+@app.template_filter('due_date')
+def due_date_filter(checkout_date_str):
+    try:
+        date_obj = datetime.strptime(checkout_date_str, '%Y-%m-%d')
+        due = date_obj + timedelta(days=14)
+        today = datetime.today().date()
+        days_diff = (due.date() - today).days
+        if days_diff > 0:
+            return f"Due in {days_diff} day{'s' if days_diff != 1 else ''}"
+        elif days_diff < 0:
+            return f"Overdue by {abs(days_diff)} day{'s' if abs(days_diff) != 1 else ''}"
+        else:
+            return "Due today"
+    except Exception:
+        return ''
+
+# format dates to be with month names nicely
+@app.template_filter('nice_date')
+def nice_date_filter(date_str):
+    try:
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        day = date_obj.day
+        if 4 <= day <= 20 or 24 <= day <= 30:
+            suffix = "th"
+        else:
+            suffix = ["th", "st", "nd", "rd"][day % 10]
+        
+        return date_obj.strftime(f'%B {day}{suffix}, %Y')
+    except Exception:
+        return date_str
+
+# color coding checkout hitstory
+@app.template_filter('checkout_status')
+def checkout_status_filter(checkout_date_str, return_date_str=None):
+    """
+    Returns the CSS color class for checkout status:
+    - 'var(--bulma-primary)' if returned (green)
+    - 'var(--bulma-danger)' if overdue (red)  
+    - 'var(--bulma-warning)' if not returned but not overdue (yellow)
+    """
+    try:
+        if return_date_str:
+            return 'var(--bulma-primary)'
+        
+        checkout_date = datetime.strptime(checkout_date_str, '%Y-%m-%d')
+        due_date = checkout_date + timedelta(days=14)
+        today = datetime.today().date()
+        
+        if due_date.date() < today:
+            return 'var(--bulma-danger)'
+        else:
+            return 'var(--bulma-warning)'
+    except Exception:
+        return 'var(--bulma-warning)' 
+
+# ============================================================================
+# BACKUP SYSTEM CONFIGURATION
+# ============================================================================
+
+# Backup configuration
+BACKUP_DIRECTORY = pathlib.Path(__file__).parent / 'backups'
+MAX_DAILY_BACKUPS = 7      # Keep 7 daily backups
+MAX_FREQUENT_BACKUPS = 24  # Keep 24 hourly backups
+MAX_EVENT_BACKUPS = 10     # Keep 10 event-based backups
+BACKUP_ENABLED = True      # Global backup toggle
+
+def ensure_backup_directory():
+    """Ensure backup directory exists"""
+    BACKUP_DIRECTORY.mkdir(exist_ok=True)
+    (BACKUP_DIRECTORY / 'daily').mkdir(exist_ok=True)
+    (BACKUP_DIRECTORY / 'frequent').mkdir(exist_ok=True)
+    (BACKUP_DIRECTORY / 'events').mkdir(exist_ok=True)
+    (BACKUP_DIRECTORY / 'manual').mkdir(exist_ok=True)
+
+def get_db_path():
+    """Get the database path"""
+    return pathlib.Path(__file__).parent / 'library.db'
+
+def create_backup(backup_type='manual', event_description=None):
+    """Create a compressed backup with metadata"""
+    if not BACKUP_ENABLED:
+        return False
+        
+    try:
+        ensure_backup_directory()
+        
+        db_path = get_db_path()
+        if not db_path.exists():
+            print("Database file not found")
+            return False
+            
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        backup_subdir = BACKUP_DIRECTORY / backup_type
+        backup_subdir.mkdir(exist_ok=True)
+        
+        if event_description:
+            safe_desc = "".join(c for c in event_description if c.isalnum() or c in (' ', '_', '-')).rstrip()[:30]
+            backup_filename = f'library_backup_{timestamp}_{safe_desc.replace(" ", "_")}.db.gz'
+        else:
+            backup_filename = f'library_backup_{timestamp}.db.gz'
+            
+        backup_path = backup_subdir / backup_filename
+        
+        with open(db_path, 'rb') as f_in:
+            with gzip.open(backup_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        
+        metadata = {
+            'timestamp': datetime.now().isoformat(),
+            'backup_type': backup_type,
+            'event_description': event_description,
+            'original_size': db_path.stat().st_size,
+            'compressed_size': backup_path.stat().st_size,
+            'compression_ratio': round(backup_path.stat().st_size / db_path.stat().st_size, 2),
+            'version': '1.0'
+        }
+        
+        metadata_path = backup_subdir / f'{backup_filename}.json'
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f, indent=2)
+        
+        cleanup_old_backups(backup_type)
+        
+        print(f"Backup created: {backup_path} ({backup_type})")
+        return True
+        
+    except Exception as e:
+        print(f"Backup failed: {e}")
+        return False
+
+def cleanup_old_backups(backup_type):
+    """Remove old backup files based on type"""
+    try:
+        backup_subdir = BACKUP_DIRECTORY / backup_type
+        if not backup_subdir.exists():
+            return
+            
+        max_backups = {
+            'daily': MAX_DAILY_BACKUPS,
+            'frequent': MAX_FREQUENT_BACKUPS,
+            'events': MAX_EVENT_BACKUPS,
+            'manual': 5 
+        }.get(backup_type, 5)
+        
+        backup_files = list(backup_subdir.glob('library_backup_*.db.gz'))
+        backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        
+        for old_backup in backup_files[max_backups:]:
+            try:
+                old_backup.unlink()
+                metadata_file = backup_subdir / f'{old_backup.name}.json'
+                if metadata_file.exists():
+                    metadata_file.unlink()
+                print(f"Removed old backup: {old_backup}")
+            except Exception as e:
+                print(f"Failed to remove {old_backup}: {e}")
+                
+    except Exception as e:
+        print(f"Cleanup failed: {e}")
+
+def restore_backup(backup_file):
+    """Restore database from backup file"""
+    try:
+        backup_path = pathlib.Path(backup_file)
+        if not backup_path.exists():
+            return False, "Backup file not found"
+            
+        db_path = get_db_path()
+        
+        create_backup('events', f'pre_restore_backup')
+        
+        with gzip.open(backup_path, 'rb') as f_in:
+            with open(db_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+                
+        print(f"Database restored from: {backup_path}")
+        return True, "Database restored successfully"
+        
+    except Exception as e:
+        print(f"Restore failed: {e}")
+        return False, str(e)
+
+def get_backup_list():
+    """Get list of all available backups with metadata"""
+    try:
+        ensure_backup_directory()
+        backups = []
+        
+        for backup_type in ['daily', 'frequent', 'events', 'manual']:
+            backup_subdir = BACKUP_DIRECTORY / backup_type
+            if not backup_subdir.exists():
+                continue
+                
+            for backup_file in backup_subdir.glob('library_backup_*.db.gz'):
+                metadata_file = backup_subdir / f'{backup_file.name}.json'
+                
+                metadata = {
+                    'file_path': str(backup_file),
+                    'backup_type': backup_type,
+                    'timestamp': datetime.fromtimestamp(backup_file.stat().st_mtime).isoformat(),
+                    'size': backup_file.stat().st_size
+                }
+                
+                if metadata_file.exists():
+                    try:
+                        with open(metadata_file, 'r') as f:
+                            stored_metadata = json.load(f)
+                            metadata.update(stored_metadata)
+                    except:
+                        pass
+                        
+                backups.append(metadata)
+        
+        backups.sort(key=lambda x: x['timestamp'], reverse=True)
+        return backups
+        
+    except Exception as e:
+        print(f"Failed to get backup list: {e}")
+        return []
+
+def trigger_event_backup(event_description):
+    """Trigger an event-based backup"""
+    if BACKUP_ENABLED:
+        Thread(target=lambda: create_backup('events', event_description)).start()
+
+@app.context_processor
+def inject_classes():
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT id, name FROM classes ORDER BY name ASC")
+    classes = cur.fetchall()
+    conn.close()
+    return dict(classes=classes)
+
+# Add book via modal form
+from flask import jsonify
+@app.route('/add_book', methods=['POST'])
+def add_book():
+    data = request.get_json()
+    required_fields = ['title', 'author', 'localnumber']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+    try:
+        cur.execute('''
+            INSERT INTO books (title, subtitle, author, publisher, published, isbn, localnumber, call1, call2, booklocation)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            data.get('title'),
+            data.get('subtitle'),
+            data.get('author'),
+            data.get('publisher'),
+            data.get('published_date'),
+            data.get('isbn'),
+            data.get('localnumber'),
+            data.get('call1'),
+            data.get('call2'),
+            data.get('location')
+        ))
+        conn.commit()
+    except Exception as e:
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    conn.close()
+    return jsonify({'success': True})
+
+
+# Open Library API lookup for ISBN autofill
+@app.route('/lookup_isbn', methods=['POST'])
+def lookup_isbn():
+    print('DEBUG: /lookup_isbn endpoint called')
+    data = request.get_json()
+    isbn = data.get('isbn', '').replace('-', '').strip()
+    if not isbn:
+        return {'success': False, 'error': 'No ISBN provided'}, 400
+    url = f'https://openlibrary.org/isbn/{isbn}.json'
+    try:
+        resp = requests.get(url, timeout=5)
+        print(resp)
+        if resp.status_code == 404:
+            return {'success': False, 'error': 'No book found for this ISBN'}, 404
+        resp.raise_for_status()
+        print('DEBUG: Open Library JSON:', resp.json())
+        book_data = resp.json()
+        result = {}
+        if 'title' in book_data:
+            result['title'] = book_data['title']
+        if 'publishers' in book_data:
+            result['publisher'] = book_data['publishers']
+        if 'publish_date' in book_data:
+            result['published_date'] = book_data['publish_date']
+        if 'authors' in book_data and book_data['authors']:
+            author_keys = [a['key'] for a in book_data['authors'] if 'key' in a]
+            authors = []
+            for key in author_keys:
+                author_url = f'https://openlibrary.org{key}.json'
+                try:
+                    author_resp = requests.get(author_url, timeout=3)
+                    if author_resp.status_code == 200:
+                        author_info = author_resp.json()
+                        if 'name' in author_info:
+                            authors.append(author_info['name'])
+                except Exception:
+                    continue
+            if authors:
+                result['author'] = ', '.join(authors)
+        return {'success': True, 'data': result}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 500
+
+# Add checkout via modal form
+@app.route('/add_checkout', methods=['POST'])
+def add_checkout():
+    print('DEBUG: /add_checkout endpoint called')
+    data = request.get_json()
+    print('DEBUG: Checkout data received:', data)
+    required_fields = ['student_id', 'book_title', 'checkout_date']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+    
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+    try:
+        # Get book rowid by title
+        cur.execute("SELECT rowid FROM books WHERE title = ?", (data.get('book_title'),))
+        book = cur.fetchone()
+        if not book:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Book not found'}), 404
+        
+        print(f'DEBUG: Inserting checkout - student_id: {data.get("student_id")}, book_id: {book[0]}, date: {data.get("checkout_date")}')
+        cur.execute('''
+            INSERT INTO checkouts (student_id, book_id, checkout_date)
+            VALUES (?, ?, ?)
+        ''', (
+            data.get('student_id'),
+            book[0],
+            data.get('checkout_date')
+        ))
+        conn.commit()
+        print('DEBUG: Checkout inserted successfully')
+    except Exception as e:
+        print('DEBUG: Checkout insert failed:', str(e))
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    conn.close()
+    return jsonify({'success': True})
+
+# Search students for input field autocomplete
+@app.route('/search_students')
+def search_students():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify([])
+    
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute('''
+        SELECT id, name, fax_id, class_id FROM students 
+        WHERE name LIKE ? OR fax_id LIKE ?
+        LIMIT 10
+    ''', (f'%{q}%', f'%{q}%'))
+    results = cur.fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in results])
+
+# Search books for input autocomplete
+@app.route('/search_books')
+def search_books():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify([])
+    
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute('''
+        SELECT title, author, localnumber FROM books 
+        WHERE title LIKE ? OR author LIKE ? OR localnumber LIKE ?
+        LIMIT 10
+    ''', (f'%{q}%', f'%{q}%', f'%{q}%'))
+    results = cur.fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in results])
+
+# route for creating a new class
+@app.route('/add_class', methods=['POST'])
+def add_class():
+    try:
+        trigger_event_backup('class_creation')
+        
+        data = request.get_json()
+        class_name = data.get('class_name', '').strip()
+        teacher_name = data.get('teacher_name', '').strip()
+        student_ids = data.get('student_ids', [])
+        
+        if not class_name:
+            return jsonify({'success': False, 'error': 'Class name is required'})
+        
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        
+        cur.execute('INSERT INTO classes (name, teacher_name) VALUES (?, ?)', 
+                    (class_name, teacher_name if teacher_name else None))
+        class_id = cur.lastrowid
+        
+        if student_ids:
+            placeholders = ','.join('?' * len(student_ids))
+            cur.execute(f'UPDATE students SET class_id = ? WHERE id IN ({placeholders})', 
+                        [class_id] + student_ids)
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Class "{class_name}" created successfully with {len(student_ids)} students'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# site wide route for class data
+@app.route('/get_class/<int:class_id>')
+def get_class(class_id):
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        
+        cur.execute('SELECT id, name, teacher_name FROM classes WHERE id = ?', (class_id,))
+        class_data = cur.fetchone()
+        
+        if not class_data:
+            return jsonify({'success': False, 'error': 'Class not found'})
+        
+        cur.execute('SELECT id, name, fax_id FROM students WHERE class_id = ?', (class_id,))
+        students = cur.fetchall()
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'class': dict(class_data),
+            'students': [dict(student) for student in students]
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# route for changing class data
+@app.route('/update_class/<int:class_id>', methods=['POST'])
+def update_class(class_id):
+    try:
+        trigger_event_backup(f'class_update_{class_id}')
+        
+        data = request.get_json()
+        class_name = data.get('class_name', '').strip()
+        teacher_name = data.get('teacher_name', '').strip()
+        student_ids = data.get('student_ids', [])
+        
+        if not class_name:
+            return jsonify({'success': False, 'error': 'Class name is required'})
+        
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        
+        cur.execute('UPDATE classes SET name = ?, teacher_name = ? WHERE id = ?', 
+                    (class_name, teacher_name if teacher_name else None, class_id))
+        
+        cur.execute('UPDATE students SET class_id = NULL WHERE class_id = ?', (class_id,))
+        
+        if student_ids:
+            placeholders = ','.join('?' * len(student_ids))
+            cur.execute(f'UPDATE students SET class_id = ? WHERE id IN ({placeholders})', 
+                        [class_id] + student_ids)
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Class "{class_name}" updated successfully with {len(student_ids)} students'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/delete_class/<int:class_id>', methods=['DELETE'])
+def delete_class(class_id):
+    try:
+        trigger_event_backup(f'class_deletion_{class_id}')
+        
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        
+        cur.execute('SELECT name FROM classes WHERE id = ?', (class_id,))
+        result = cur.fetchone()
+        if not result:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Class not found'})
+        
+        class_name = result[0]
+        
+        cur.execute('UPDATE students SET class_id = NULL WHERE class_id = ?', (class_id,))
+        
+        cur.execute('DELETE FROM classes WHERE id = ?', (class_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Class "{class_name}" deleted successfully. Students have been unassigned.'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# Add student via modal form
+@app.route('/add_student', methods=['POST'])
+def add_student():
+    data = request.get_json()
+    required_fields = ['name']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+    
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+    try:
+
+        cur.execute('SELECT fax_id FROM students')
+        all_fax_ids = cur.fetchall()
+        
+        numeric_fax_ids = []
+        for (fax_id,) in all_fax_ids:
+            if fax_id and fax_id.isdigit():
+                numeric_fax_ids.append(int(fax_id))
+        
+        next_fax_id = max(numeric_fax_ids) + 1 if numeric_fax_ids else 1000
+        
+        class_id_value = data.get('class_id')
+        if class_id_value and class_id_value.strip():
+            try:
+
+                class_id = int(class_id_value)
+            except ValueError:
+
+                class_id = None
+        else:
+            class_id = None
+        
+        cur.execute('''
+            INSERT INTO students (name, fax_id, class_id)
+            VALUES (?, ?, ?)
+        ''', (
+            data.get('name'),
+            str(next_fax_id),
+            class_id
+        ))
+        conn.commit()
+        
+
+        result_data = {'success': True, 'fax_id': str(next_fax_id)}
+        
+    except Exception as e:
+        conn.close()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    conn.close()
+    return jsonify(result_data)
+
+# search page
+@app.route("/search_page")
+def class_search():
+    return render_template('search.html', color='blue')
+
+# settings page
+@app.route("/settings")
+def settings():
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    
+    # Get all classes for the manage classes modal
+    cur.execute('SELECT id, name, teacher_name FROM classes ORDER BY name')
+    classes = cur.fetchall()
+    
+    conn.close()
+    
+    return render_template('settings.html', classes=[dict(row) for row in classes])
+
+# main page load
+@app.route("/")
+def main_page():
+    
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    
+    # Get outstanding books (not yet returned)
+    cur.execute('''
+        SELECT b.title, b.localnumber, s.name as student_name, s.fax_id as student_fax_id, c.checkout_date, c.id as checkout_id
+        FROM checkouts c
+        JOIN books b ON c.book_id = b.rowid
+        JOIN students s ON c.student_id = s.id
+        WHERE c.return_date IS NULL
+        ORDER BY c.checkout_date ASC, c.id ASC
+    ''')
+    outstanding_books = cur.fetchall()
+    conn.close()
+    
+    return render_template('main.html', outstanding_books=outstanding_books)
+
+# file upload routes for settings
+@app.route('/upload_books', methods=['POST'])
+def upload_books():
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file selected'})
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'})
+    
+    if file and file.filename.lower().endswith('.csv'):
+        # Trigger backup before major data change
+        trigger_event_backup('bulk_book_import')
+        
+        return jsonify({'success': True, 'message': 'Book list imported successfully'})
+    else:
+        return jsonify({'success': False, 'error': 'Please select a CSV file'})
+
+# convert book data to csv
+@app.route('/export_books')
+def export_books():
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    
+    cur.execute('SELECT * FROM books ORDER BY title')
+    books = cur.fetchall()
+    conn.close()
+    
+    import io
+    from flask import make_response
+    
+    output = io.StringIO()
+    output.write('title,subtitle,author,localnumber,publisher,published\n')
+    
+    for book in books:
+        output.write(f'"{book["title"]}","{book["subtitle"] or ""}","{book["author"] or ""}","{book["localnumber"]}","{book["publisher"] or ""}","{book["published"] or ""}"\n')
+    
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = 'attachment; filename=books_export.csv'
+    response.headers['Content-type'] = 'text/csv'
+    
+    return response
+
+# find unreturned books and export to csv
+
+@app.route('/export_outstanding_students')
+def export_outstanding_students():
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    
+    cur.execute('''
+        SELECT s.name as student_name, b.title as book_title, c.checkout_date
+        FROM students s
+        JOIN checkouts c ON s.id = c.student_id
+        JOIN books b ON c.book_id = b.rowid
+        WHERE c.return_date IS NULL
+        ORDER BY s.name, c.checkout_date
+    ''')
+    checkouts = cur.fetchall()
+    conn.close()
+    
+    import io
+    from flask import make_response
+    
+    output = io.StringIO()
+    output.write('student_name,book_title,checkout_date\n')
+    
+    for checkout in checkouts:
+        output.write(f'"{checkout["student_name"]}","{checkout["book_title"]}","{checkout["checkout_date"]}"\n')
+    
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = 'attachment; filename=outstanding_students.csv'
+    response.headers['Content-type'] = 'text/csv'
+    
+    return response
+
+@app.route('/upload_students', methods=['POST'])
+def upload_students():
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file selected'})
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'})
+    
+    if file and file.filename.lower().endswith('.csv'):
+        try:
+            # Trigger backup before major data change
+            trigger_event_backup('bulk_student_import')
+            
+            with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
+                file.save(temp_file.name)
+                temp_csv_path = temp_file.name
+            
+            script_path = os.path.join(os.path.dirname(__file__), 'import_students.py')
+            db_path = os.path.join(os.path.dirname(__file__), 'library.db')
+            
+            # Call the import_students.py script
+            result = subprocess.run(
+                [sys.executable, script_path, temp_csv_path, db_path],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            os.unlink(temp_csv_path)
+            
+            if result.returncode == 0:
+
+                output_lines = result.stdout.strip().split('\n')
+                success_line = next((line for line in output_lines if line.startswith('SUCCESS:')), '')
+                message = success_line.replace('SUCCESS: ', '') if success_line else 'Students imported successfully'
+                
+                warnings = []
+                in_warnings = False
+                for line in output_lines:
+                    if line == 'WARNINGS:':
+                        in_warnings = True
+                        continue
+                    elif in_warnings and line.startswith('  - '):
+                        warnings.append(line[4:])
+                
+                response = {'success': True, 'message': message}
+                if warnings:
+                    response['warnings'] = warnings
+                    
+                return jsonify(response)
+            else:
+                error_lines = result.stdout.strip().split('\n')
+                error_line = next((line for line in error_lines if line.startswith('ERROR:')), '')
+                error_message = error_line.replace('ERROR: ', '') if error_line else 'Unknown error occurred'
+                return jsonify({'success': False, 'error': error_message})
+                
+        except subprocess.TimeoutExpired:
+            return jsonify({'success': False, 'error': 'Import operation timed out'})
+        except Exception as e:
+            try:
+                if 'temp_csv_path' in locals():
+                    os.unlink(temp_csv_path)
+            except:
+                pass
+            return jsonify({'success': False, 'error': f'Error processing file: {str(e)}'})
+    else:
+        return jsonify({'success': False, 'error': 'Please select a CSV file'})
+
+@app.route('/upload_backup', methods=['POST'])
+def upload_backup():
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file selected'})
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'})
+    
+    if file and (file.filename.lower().endswith('.db') or file.filename.lower().endswith('.sqlite')):
+
+        return jsonify({'success': True, 'message': 'Backup loaded successfully'})
+    else:
+        return jsonify({'success': False, 'error': 'Please select a database file (.db or .sqlite)'})
+
+
+# search functionality
+@app.route('/search')
+def search():
+    import re
+    q = request.args.get('q', '').strip()
+    results = []
+    if q:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+
+        try:
+
+            safe_q = re.sub(r'["*#^\[\]{}()]', '', q)
+            if safe_q:  
+                cur.execute('''
+                    SELECT b.title, b.author, b.localnumber, b.booklocation
+                    FROM books_fts f
+                    JOIN books b ON b.rowid = f.rowid
+                    WHERE books_fts MATCH ?
+                    LIMIT 30
+                ''', (safe_q,))
+                results = cur.fetchall()
+        except Exception:
+            results = []
+        
+        if not results and q:
+            cur.execute('''
+                SELECT title, author, localnumber, booklocation
+                FROM books
+                WHERE title LIKE ? OR author LIKE ?
+                LIMIT 30
+            ''', (f'%{q}%', f'%{q}%'))
+            results = cur.fetchall()
+            
+        conn.close()
+
+    import urllib.parse
+    student_results = []
+    if q:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        
+        # get search results
+        cur.execute('''
+            SELECT s.id, s.name, s.fax_id, c.name as class_name, c.teacher_name 
+            FROM students s
+            LEFT JOIN classes c ON s.class_id = c.id
+            WHERE s.name LIKE ? OR s.fax_id LIKE ?
+        ''', (f'%{q}%', f'%{q}%'))
+        student_results = list(cur.fetchall())
+        
+
+        cur.execute('''
+            SELECT s.id, s.name, s.fax_id, c.name as class_name, c.teacher_name 
+            FROM students s
+            JOIN classes c ON s.class_id = c.id
+            WHERE c.name LIKE ? OR c.teacher_name LIKE ?
+        ''', (f'%{q}%', f'%{q}%'))
+        class_student_results = cur.fetchall()
+        
+
+        existing_ids = {s['id'] for s in student_results}
+        for student in class_student_results:
+            if student['id'] not in existing_ids:
+                student_results.append(student)
+        
+        conn.close()
+    # display search results
+    html = '<ul style="list-style: none; padding: 0;">'
+    for row in results:
+        book_url = '/book/' + urllib.parse.quote(str(row["localnumber"]))
+        html += f'''<li style="display: flex; align-items: center; margin-bottom: 0.5rem; white-space: nowrap; overflow: hidden;">
+            <a href="{book_url}" class="has-text-primary" style="flex-shrink: 0; margin-right: 0.5rem;"><strong>{row["title"]}</strong></a>
+            <span style="color:white; flex-shrink: 1; margin-right: 0.5rem; overflow: hidden; text-overflow: ellipsis; min-width: 0;"> — {row["author"]} </span>
+            <span style="color:gray; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis;">({row["localnumber"]}, {row["booklocation"]})</span>
+        </li>'''
+    for student in student_results:
+        student_url = f'/student/{student["fax_id"]}'
+        html += f'''<li style="display: flex; align-items: center; margin-bottom: 0.5rem; white-space: nowrap; overflow: hidden;">
+            <a href="{student_url}" class="has-text-info" style="flex-shrink: 0; margin-right: 0.5rem;"><strong>{student["name"]}</strong></a>
+            <span style="color:white; flex-shrink: 1; margin-right: 0.5rem; overflow: hidden; text-overflow: ellipsis; min-width: 0;"> — {student["teacher_name"]} </span>
+            <span style="color:gray; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis;">({student["class_name"]})</span>
+        </li>'''
+    html += '</ul>'
+    if not results and not student_results and q:
+        html = f'<p>No results for "{q}"</p>'
+    elif not q:
+        html = ''
+    return html
+
+# book detail page
+@app.route('/book/<localnumber>')
+def book_detail(localnumber):
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
+    book = cur.fetchone()
+    checkouts = []
+    if book:
+        cur.execute('''
+            SELECT s.fax_id as student_fax_id, s.name as student_name, c.checkout_date, c.return_date, c.id as checkout_id
+            FROM checkouts c
+            JOIN students s ON c.student_id = s.id
+            WHERE c.book_id = ?
+            ORDER BY c.checkout_date DESC, c.id DESC
+            LIMIT 20
+        ''', (book['rowid'],))
+        checkouts = cur.fetchall()
+    conn.close()
+    if not book:
+        return f"No book found with localnumber: {localnumber}", 404
+    return render_template('book_detail.html', book=book, checkouts=checkouts)
+
+# Student detail page
+@app.route('/student/<student_id>')
+def student_detail(student_id):
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute('''
+        SELECT s.*, c.name as class_name, c.teacher_name as teacher_name
+        FROM students s
+        LEFT JOIN classes c ON s.class_id = c.id
+        WHERE s.fax_id = ?
+    ''', (student_id,))
+    student = cur.fetchone()
+    checkouts = []
+    if student:
+        cur.execute('''
+            SELECT b.title, b.localnumber, b.author, c.checkout_date, c.return_date, c.id as checkout_id
+            FROM checkouts c
+            JOIN books b ON c.book_id = b.rowid
+            WHERE c.student_id = ?
+            ORDER BY c.checkout_date DESC, c.id DESC
+            LIMIT 20
+        ''', (student['id'],))
+        checkouts = cur.fetchall()
+    conn.close()
+    if not student:
+        return f"No student found with id: {student_id}", 404
+    return render_template('student_detail.html', student=student, checkouts=checkouts)
+
+# Class detail page
+@app.route('/class/<class_name>')
+def class_detail(class_name):
+    class_name = unquote(class_name)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute('SELECT * FROM classes WHERE name = ?', (class_name,))
+    class_info = cur.fetchone()
+    students = []
+    if class_info:
+        cur.execute('''
+            SELECT s.id, s.name, s.fax_id
+            FROM students s
+            WHERE s.class_id = ?
+            ORDER BY s.name ASC
+        ''', (class_info['id'],))
+        students = cur.fetchall()
+    conn.close()
+    if not class_info:
+        return f"No class found with name: {class_name}", 404
+    return render_template('class_detail.html', class_info=class_info, students=students)
+
+# API endpoint to get book details by local number
+@app.route('/api/book/<localnumber>')
+def book_api(localnumber):
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
+    book = cur.fetchone()
+    if not book:
+        conn.close()
+        return {'error': 'Book not found'}, 404
+    
+    # Check if book is currently checked out
+    cur.execute('''
+        SELECT s.name as student_name, s.fax_id as student_fax_id, c.checkout_date
+        FROM checkouts c
+        JOIN students s ON c.student_id = s.id
+        WHERE c.book_id = ? AND c.return_date IS NULL
+    ''', (book['rowid'],))
+    active_checkout = cur.fetchone()
+    
+    conn.close()
+    
+    result = {
+        'title': book['title'],
+        'subtitle': book['subtitle'],
+        'author': book['author'],
+        'localnumber': book['localnumber']
+    }
+    
+    if active_checkout:
+        result['checked_out'] = True
+        result['checked_out_to'] = active_checkout['student_name']
+        result['checked_out_to_fax_id'] = active_checkout['student_fax_id']
+        result['checkout_date'] = active_checkout['checkout_date']
+    else:
+        result['checked_out'] = False
+    
+    return result
+
+
+# book return endpoint
+@app.route('/return_book', methods=['POST'])
+def return_book():
+    checkout_id = request.form.get('checkout_id')
+    redirect_url = request.form.get('redirect_url', '/')
+    
+    def update_database():
+        conn = sqlite3.connect(pathlib.Path(__file__).parent / 'library.db')
+        cur = conn.cursor()
+        
+        cur.execute("UPDATE checkouts SET return_date = DATE('now') WHERE id = ?", (checkout_id,))
+        conn.commit()
+        conn.close()
+    
+    # Run database update in background thread
+    import threading
+    thread = threading.Thread(target=update_database)
+    thread.daemon = True
+    thread.start()
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+
+        return {'success': True}
+    else:
+
+        return redirect(redirect_url)
+
+def check_setup(data_path):
+    conn = sqlite3.connect(str(data_path))
+    cur = conn.cursor()
+    cur.executescript('''
+
+    CREATE TABLE IF NOT EXISTS classes (
+        id INTEGER PRIMARY KEY,
+        teacher_name TEXT,
+        name TEXT NOT NULL UNIQUE
+    );
+    
+    CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY,
+        fax_id TEXT UNIQUE,
+        name TEXT NOT NULL,
+        class_id INTEGER,
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS books (
+        id INTEGER PRIMARY KEY,
+        localnumber TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        subtitle TEXT,
+        author TEXT NOT NULL,
+        call1 TEXT,
+        call2 TEXT,
+        publisher TEXT,
+        published TEXT,
+        isbn TEXT,
+        booklocation TEXT
+    );
+    
+    CREATE TABLE IF NOT EXISTS checkouts (
+        id INTEGER PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        book_id INTEGER NOT NULL,
+        checkout_date DATE DEFAULT CURRENT_DATE,
+        return_date DATE,
+        FOREIGN KEY (student_id) REFERENCES students(id),
+        FOREIGN KEY (book_id) REFERENCES books(id)
+    );
+''')
+    conn.close()
+
+def check_database_validity(db_path, output_path = pathlib.Path(__file__).parent / 'books_missing_data.csv'):
+    conn = sqlite3.connect(str(db_path))
+    try:
+        query = """
+            SELECT localnumber, title, author, call1, call2 
+            FROM books 
+            WHERE author IS NULL
+            OR title IS NULL
+            OR localnumber IS NULL
+            OR call1 IS NULL;
+        """
+        
+        df_missing = pandas.read_sql_query(query, conn)
+        print(f"found {len(df_missing)} books with missing data")
+        df_missing.to_csv(output_path, index=False)
+    finally:
+        conn.close()
+
+# Initialize database on startup
+
+
+# ============================================================================
+# BACKUP ROUTES
+# ============================================================================
+
+@app.route('/force_backup', methods=['POST'])
+def force_backup():
+    """Manual backup endpoint"""
+    try:
+        success = create_backup('manual', 'user_initiated')
+        if success:
+            return jsonify({'success': True, 'message': 'Backup created successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Backup failed'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/list_backups')
+def list_backups():
+    """Get list of available backups"""
+    try:
+        backups = get_backup_list()
+        return jsonify({'success': True, 'backups': backups})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/backup_status')
+def backup_status():
+    """Get backup system status and recent backups"""
+    try:
+        backups = get_backup_list()
+        
+        # Group backups by type
+        backup_counts = {'daily': 0, 'frequent': 0, 'events': 0, 'manual': 0}
+        recent_backups = backups[:10]
+        
+        for backup in backups:
+            backup_type = backup.get('backup_type', 'manual')
+            if backup_type in backup_counts:
+                backup_counts[backup_type] += 1
+        
+        status = {
+            'enabled': BACKUP_ENABLED,
+            'backup_directory': str(BACKUP_DIRECTORY),
+            'total_backups': len(backups),
+            'backup_counts': backup_counts,
+            'recent_backups': recent_backups,
+            'last_backup': backups[0] if backups else None
+        }
+        
+        return jsonify({'success': True, 'status': status})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/restore_backup', methods=['POST'])
+def restore_backup_route():
+    """Restore database from backup"""
+    try:
+        backup_file = request.json.get('backup_file')
+        if not backup_file:
+            return jsonify({'success': False, 'error': 'No backup file specified'})
+        
+        success, message = restore_backup(backup_file)
+        return jsonify({'success': success, 'message': message})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/download_backup/<path:backup_file>')
+def download_backup(backup_file):
+    """Download a backup file"""
+    try:
+        backup_path = pathlib.Path(backup_file)
+        if not backup_path.exists() or not str(backup_path).startswith(str(BACKUP_DIRECTORY)):
+            return jsonify({'error': 'Invalid backup file'}), 404
+            
+        return send_file(backup_path, as_attachment=True)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/clear_checkouts', methods=['POST'])
+def clear_checkouts():
+    """Clear all checkout records"""
+    try:
+        # Create backup before clearing checkouts
+        trigger_event_backup('clear_all_checkouts')
+        
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        
+        # Get count of checkouts to be deleted
+        cur.execute('SELECT COUNT(*) FROM checkouts')
+        count = cur.fetchone()[0]
+        
+        # Delete all checkouts
+        cur.execute('DELETE FROM checkouts')
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Successfully cleared {count} checkout records'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+check_setup(db_path)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=False)
+        

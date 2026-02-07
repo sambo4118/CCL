@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block body %}
+    <section class="container">
+
+        <form class="field" onsubmit="return false;">
+            <div class="control">
+                <input class="input is-primary" id="search-bar" type="search" name="q" placeholder="Search books, authors, or students outline" autocomplete="off" autofocus>
+            </div>
+        </form>
+
+        <div id="results" class="box mt-4 section has-text-primary" style="max-height: 80vh; min-height: 100px; overflow-y: auto; border: 1px solid #6a9a75; border-radius: 8px;">
+        </div>
+    </section>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search-bar');
+        const resultsDiv = document.getElementById('results');
+        let timeoutId = null;
+
+        searchInput.addEventListener('input', function() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(function() {
+                const query = searchInput.value;
+                if (query.trim() === '') {
+                    resultsDiv.innerHTML = '';
+                    return;
+                }
+                fetch(`/search?q=${encodeURIComponent(query)}`)
+                    .then(response => response.text())
+                    .then(html => {
+                        resultsDiv.innerHTML = html;
+                    });
+            }, 250);
+        });
+    });
+    </script>
+{% endblock %}

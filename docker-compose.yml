@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  ccalibrary:
+    image: my-cca-library
+    container_name: ccalibrary-app
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      - .:/app
+      - ./library.db:/app/library.db
+
+    environment:
+      - FLASK_DEBUG=1
+
+    working_dir: /app
+
+    restart: unless-stopped

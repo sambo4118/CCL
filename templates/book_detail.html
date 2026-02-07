@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block body %}
+<div style="display: flex; min-height: 220px; border-radius: 1rem; overflow: hidden; align-items: stretch;">
+    <div class="has-background-primary is-flex" style="color: white; min-width: 250px; flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
+        <div style="width:100%; text-align:left; padding-left:2rem;">
+            <div class="block">
+                <h1 class="title is-2 has-text-weight-semibold">{{ book.title }}</h1>
+            </div>
+            {% if book.subtitle %}
+            <div class="block">
+                <h3 class="subtitle has-text-black has-text-weight-semibold is-3">{{ book.subtitle }}</h3>
+            </div>
+            {% endif %}
+            <div class="block">
+            <p class="is-size-5 has-text-black" style="margin-top:0.5rem;">by: {{ book.author if book.author else 'Unknown' }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="section p-0" style="flex: 7;">
+        <div style="width:100%; height:100%; background: linear-gradient(270deg, #14161a 0%, #6a9a75 100%); display: flex; align-items: center; justify-content: flex-end;">
+            <ul style="color: white; min-width: 180px; margin: 2rem;">
+                <li><strong>Localnumber:</strong> {{ book.localnumber }}</li>
+                {% if book.booklocation %}
+                <li><strong>Location:</strong> {{ book.booklocation }}</li>
+                {% endif %}
+                {% if book.call1 %}
+                <li><strong>Call1:</strong> {{ book.call1 }}</li>
+                {% endif %}
+                {% if book.call2 %}
+                <li><strong>Call2:</strong> {{ book.call2 }}</li>
+                {% endif %}
+                {% if book.publisher %}
+                <li><strong>Publisher:</strong> {{ book.publisher }}</li>
+                {% endif %}
+                {% if book.published and (book.published|regex_search('^\\d{4}(-\\d{2}){0,2}$')) %}
+                <li><strong>Published:</strong> {{ book.published }}</li>
+                {% endif %}
+                {% if book.isbn %}
+                <li><strong>ISBN:</strong> {{ book.isbn }}</li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</div>
+<div class="columns is-gapless" style="margin-bottom: 0.5rem;">
+	<div class="column section" style="height:10px; padding:0;"></div>
+</div>
+<div class="columns is-gapless" style="margin-top: 0;">
+    <div class="column is-10 section py-3 px-5 ml-3" style="color: white; min-width: 250px;">
+        {% if checkouts %}
+        <table class="table is-fullwidth section has-text-white is-rounded" style="border-radius: 1rem; overflow: hidden;">
+            <tbody>
+            {% for c in checkouts %}
+                <tr>
+                    <td colspan="3" style="padding:0; border:none; background:none;">
+                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
+                            <div style="{% if not c['return_date'] %}flex:1.7{% else %}flex:2{% endif %}; background: linear-gradient(90deg, #14161a 0%, {{ c['checkout_date'] | checkout_status(c['return_date']) }} 100%); padding:0.5rem 1rem; {% if not c['return_date'] %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem;{% else %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; border-top-right-radius:0.75rem; border-bottom-right-radius:0.75rem;{% endif %} display: flex; justify-content: space-between; align-items: center;">
+                                <div style="text-align: left;">
+                                    <a href="/student/{{ c['student_fax_id'] }}" class="has-text-white has-text-weight-semibold">{{ c['student_name'] }}</a>
+                                </div>
+                                <div style="text-align: right;" title="Checked out: {{ c['checkout_date'] | nice_date }}">
+                                    {% if c['return_date'] %}
+                                        <div title="Returned: {{ c['return_date'] | nice_date }}">Returned: {{ c['return_date'] | nice_date }}</div>
+                                    {% else %}
+                                        <div>{{ c['checkout_date'] | due_date }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if not c['return_date'] %}
+                            <form method="POST" action="/return_book" style="margin: 0; flex: 0.3;">
+                                <input type="hidden" name="checkout_id" value="{{ c['checkout_id'] }}">
+                                <input type="hidden" name="redirect_url" value="{{ request.url }}">
+                                <button type="button" class="has-background-primary has-text-white has-text-weight-semibold return-book-btn" data-checkout-id="{{ c['checkout_id'] }}" data-student-name="{{ c['student_name'] }}" data-redirect-url="{{ request.url }}" style="width: 100%; height: 100%; background: transparent; border: none; padding: 0.5rem; border-top-right-radius: 0.75rem; border-bottom-right-radius: 0.75rem; display: flex; align-items: center; justify-content: center; cursor: pointer;" title="Return this book">
+                                    <span class="icon"><i class="fas fa-check"></i></span>
+                                    <span>Return</span>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No checkouts for this book.</p>
+        {% endif %}
+    </div>
+    <div class="column section py-3 px-3" style="display:flex;align-items:center;justify-content:end; min-width: 80px;">
+        <span class="icon is-large has-text-primary">
+            <i class="fas fa-clock fa-3x"></i>
+        </span>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle return book buttons
+    document.querySelectorAll('.return-book-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const checkoutId = this.dataset.checkoutId;
+            const bookTitle = this.dataset.bookTitle;
+            const redirectUrl = this.dataset.redirectUrl;
+            
+            showConfirmation('Return Book', `Are you sure you want to return "${bookTitle}"?`, () => {
+                // Create and submit form
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/return_book';
+                
+                const checkoutInput = document.createElement('input');
+                checkoutInput.type = 'hidden';
+                checkoutInput.name = 'checkout_id';
+                checkoutInput.value = checkoutId;
+                form.appendChild(checkoutInput);
+                
+                const redirectInput = document.createElement('input');
+                redirectInput.type = 'hidden';
+                redirectInput.name = 'redirect_url';
+                redirectInput.value = redirectUrl;
+                form.appendChild(redirectInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            });
+        });
+    });
+});
+</script>
+
+{% endblock %}
