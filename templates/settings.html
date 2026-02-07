@@ -91,6 +91,22 @@
             <div class="settings-item box has-background-warning p-2">
                 <div class="columns is-vcentered is-mobile">
                     <div class="column is-narrow">
+                        <button class="button is-warning" id="remove-books-btn" type="button">
+                            <span class="icon">
+                                <i class="fas fa-trash"></i>
+                            </span>
+                        </button>
+                    </div>
+                    <div class="column">
+                        <strong class="has-text-dark is-vcentered">REMOVE BOOKS</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="column is-half-tablet is-full-mobile">
+            <div class="settings-item box has-background-warning p-2">
+                <div class="columns is-vcentered is-mobile">
+                    <div class="column is-narrow">
                         <button class="button is-warning" id="force-backup-btn" type="button">
                             <span class="icon">
                                 <i class="fas fa-database"></i>
@@ -332,6 +348,33 @@
     </div>
 </div>
 
+<!-- Remove Books Modal -->
+<div class="modal" id="remove-books-modal">
+    <div class="modal-background"></div>
+    <div class="modal-card" style="width: 500px; max-width: 90vw;">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Remove Books</p>
+            <button class="delete" aria-label="close" id="close-remove-books-modal-btn"></button>
+        </header>
+        <section class="modal-card-body">
+            <div class="field">
+                <label class="label">Search for books</label>
+                <input class="input is-danger" type="text" id="remove-book-search" placeholder="Search for book..." autocomplete="off">
+            </div>
+            <div class="field">
+                <label class="label">Selected Books</label>
+                <div id="remove-book-chips" class="chips-container"></div>
+            </div>
+            <div class="field">
+                <div id="remove-book-results"></div>
+            </div>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-danger" id="confirm-remove-books-btn" type="button">Remove Selected</button>
+            <button class="button" id="cancel-remove-books-btn" style="margin-left: 1rem;">Cancel</button>
+        </footer>
+    </div>
+</div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, checking for elements...');
@@ -1071,6 +1114,117 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error:', error.message);
+        });
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const removeBooksBtn = document.getElementById('remove-books-btn');
+    const removeBooksModal = document.getElementById('remove-books-modal');
+    const closeRemoveBooksModalBtn = document.getElementById('close-remove-books-modal-btn');
+    const cancelRemoveBooksBtn = document.getElementById('cancel-remove-books-btn');
+    const confirmRemoveBooksBtn = document.getElementById('confirm-remove-books-btn');
+    const removeBookSearch = document.getElementById('remove-book-search');
+    const removeBookResults = document.getElementById('remove-book-results');
+    const removeBookChips = document.getElementById('remove-book-chips');
+    let selectedBooks = [];
+
+    removeBooksBtn.addEventListener('click', function() {
+        removeBooksModal.classList.add('is-active');
+        removeBookSearch.value = '';
+        removeBookResults.innerHTML = '';
+        renderChips();
+    });
+
+    function closeModal() {
+        removeBooksModal.classList.remove('is-active');
+        removeBookSearch.value = '';
+        removeBookResults.innerHTML = '';
+        selectedBooks = [];
+        renderChips();
+    }
+    closeRemoveBooksModalBtn.addEventListener('click', closeModal);
+    cancelRemoveBooksBtn.addEventListener('click', closeModal);
+    removeBooksModal.querySelector('.modal-background').addEventListener('click', closeModal);
+
+    removeBookSearch.addEventListener('input', function() {
+        const query = this.value.trim();
+        if (query.length < 2) {
+            removeBookResults.innerHTML = '';
+            return;
+        }
+        fetch(`/search_books?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.books && data.books.length > 0) {
+                    const availableBooks = data.books.filter(book => !selectedBooks.some(b => b.id === book.id));
+                    if (availableBooks.length > 0) {
+                        removeBookResults.innerHTML = availableBooks.map(book =>
+                            `<div class="box is-flex is-align-items-center is-justify-content-space-between">
+                                <span>${book.title} <small>(${book.author})</small></span>
+                                <button class="button is-small is-danger add-chip-btn" data-book-id="${book.id}" data-book-title="${book.title}">Add</button>
+                            </div>`
+                        ).join('');
+                        document.querySelectorAll('.add-chip-btn').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const bookId = this.dataset.bookId;
+                                const bookTitle = this.dataset.bookTitle;
+                                if (!selectedBooks.some(b => b.id === bookId)) {
+                                    selectedBooks.push({id: bookId, title: bookTitle});
+                                    renderChips();
+                                }
+                            });
+                        });
+                    } else {
+                        removeBookResults.innerHTML = '<p>All books matching your search are already selected.</p>';
+                    }
+                } else {
+                    removeBookResults.innerHTML = '<p>No books found.</p>';
+                }
+            });
+    });
+
+    function renderChips() {
+        removeBookChips.innerHTML = selectedBooks.map(book =>
+            `<div class="column is-narrow">
+                <div class="box has-background-danger p-1" style="display: inline-flex; align-items: center; width: fit-content; border-radius: 8px; gap: 8px;">
+                    <span class="has-text-white is-size-7" style="font-weight: 500;">${book.title}</span>
+                    <button class="delete is-small is-warning remove-chip-btn" data-book-id="${book.id}"></button>
+                </div>
+            </div>`
+        ).join('');
+        document.querySelectorAll('.remove-chip-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const bookId = this.dataset.bookId;
+                selectedBooks = selectedBooks.filter(b => b.id !== bookId);
+                renderChips();
+            });
+        });
+    }
+
+    confirmRemoveBooksBtn.addEventListener('click', function() {
+        if (selectedBooks.length === 0) {
+            alert('Select at least one book to remove.');
+            return;
+        }
+        fetch('/remove_books', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({book_ids: selectedBooks.map(b => b.id)})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeModal();
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
         });
     });
 });

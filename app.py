@@ -449,19 +449,19 @@ def search_books():
     """Search books for autocomplete functionality"""
     q = request.args.get('q', '').strip()
     if not q:
-        return jsonify([])
+        return jsonify({'books': []})
     
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     cur.execute('''
-        SELECT title, author, localnumber FROM books 
+        SELECT rowid as id, title, author, localnumber FROM books 
         WHERE title LIKE ? OR author LIKE ? OR localnumber LIKE ?
         LIMIT 10
     ''', (f'%{q}%', f'%{q}%', f'%{q}%'))
     results = cur.fetchall()
     conn.close()
-    return jsonify([dict(row) for row in results])
+    return jsonify({'books': [dict(row) for row in results]})
 
 # ============================================================================
 # CLASS MANAGEMENT ROUTES
