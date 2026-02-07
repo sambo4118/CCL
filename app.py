@@ -1,41 +1,55 @@
-# a change
+# ============================================================================
+# IMPORTS
+# ============================================================================
 
-import re
-import requests
-from urllib.parse import quote
-from datetime import datetime, timedelta
-import sqlite3
-import pathlib
-import pandas
-import subprocess
-import tempfile
-import os
-import sys
-import random
-import shutil
-import gzip
-import json
+# Standard library imports
 import atexit
-from threading import Thread
-from flask import Flask, render_template, request, redirect, jsonify, send_file, make_response
-from urllib.parse import quote, unquote
-import secrets
+import gzip
 import hashlib
+import io
+import json
+import os
+import pathlib
+import random
+import re
+import secrets
+import shutil
+import sqlite3
+import subprocess
+import sys
+import tempfile
+import threading
+import urllib.parse
+from datetime import datetime, timedelta
+from threading import Thread
+from urllib.parse import quote, unquote
+
+# Third-party imports
+import pandas
+import requests
+from flask import Flask, render_template, request, redirect, jsonify, send_file, make_response
+
+# ============================================================================
+# APPLICATION SETUP
+# ============================================================================
 
 app = Flask(__name__)
 
-# check that database exists
+# Database path configuration
+db_path = pathlib.Path(__file__).parent / 'library.db'
+
+# Verify database connectivity
 try:
-    db_path = pathlib.Path(__file__).parent / 'library.db'
     conn = sqlite3.connect(str(db_path))
     conn.close()
-except:
-    print("Failed to connect to database")
+except Exception as e:
+    print(f"Failed to connect to database: {e}")
 
+# ============================================================================
+# TEMPLATE FILTERS
+# ============================================================================
 
-
-
-#allow regex search in templates
+# Allow regex search in templates
 @app.template_filter('regex_search')
 def regex_search_filter(s, pattern):
     if not s:
@@ -274,8 +288,13 @@ def trigger_event_backup(event_description):
     if BACKUP_ENABLED:
         Thread(target=lambda: create_backup('events', event_description)).start()
 
+# ============================================================================
+# CONTEXT PROCESSORS
+# ============================================================================
+
 @app.context_processor
 def inject_classes():
+    """Inject classes data into all templates"""
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -284,8 +303,9 @@ def inject_classes():
     conn.close()
     return dict(classes=classes)
 
-# Add book via modal form
-from flask import jsonify
+# ============================================================================
+# API ROUTES - CRUD OPERATIONS
+# ============================================================================
 @app.route('/add_book', methods=['POST'])
 def add_book():
     data = request.get_json()
@@ -322,6 +342,7 @@ def add_book():
 # Open Library API lookup for ISBN autofill
 @app.route('/lookup_isbn', methods=['POST'])
 def lookup_isbn():
+    """Lookup book information by ISBN using Open Library API"""
     print('DEBUG: /lookup_isbn endpoint called')
     data = request.get_json()
     isbn = data.get('isbn', '').replace('-', '').strip()
@@ -365,6 +386,7 @@ def lookup_isbn():
 # Add checkout via modal form
 @app.route('/add_checkout', methods=['POST'])
 def add_checkout():
+    """Add a new book checkout record"""
     print('DEBUG: /add_checkout endpoint called')
     data = request.get_json()
     print('DEBUG: Checkout data received:', data)
@@ -404,6 +426,7 @@ def add_checkout():
 # Search students for input field autocomplete
 @app.route('/search_students')
 def search_students():
+    """Search students for autocomplete functionality"""
     q = request.args.get('q', '').strip()
     if not q:
         return jsonify([])
@@ -423,6 +446,7 @@ def search_students():
 # Search books for input autocomplete
 @app.route('/search_books')
 def search_books():
+    """Search books for autocomplete functionality"""
     q = request.args.get('q', '').strip()
     if not q:
         return jsonify([])
@@ -439,9 +463,14 @@ def search_books():
     conn.close()
     return jsonify([dict(row) for row in results])
 
-# route for creating a new class
+# ============================================================================
+# CLASS MANAGEMENT ROUTES
+# ============================================================================
+
+# Route for creating a new class
 @app.route('/add_class', methods=['POST'])
 def add_class():
+    """Create a new class and assign students to it"""
     try:
         trigger_event_backup('class_creation')
         
@@ -476,9 +505,10 @@ def add_class():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-# site wide route for class data
+# Site wide route for class data
 @app.route('/get_class/<int:class_id>')
 def get_class(class_id):
+    """Get class information and associated students"""
     try:
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
@@ -504,9 +534,10 @@ def get_class(class_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-# route for changing class data
+# Route for changing class data
 @app.route('/update_class/<int:class_id>', methods=['POST'])
 def update_class(class_id):
+    """Update class information and student assignments"""
     try:
         trigger_event_backup(f'class_update_{class_id}')
         
@@ -544,6 +575,7 @@ def update_class(class_id):
 
 @app.route('/delete_class/<int:class_id>', methods=['DELETE'])
 def delete_class(class_id):
+    """Delete a class and unassign its students"""
     try:
         trigger_event_backup(f'class_deletion_{class_id}')
         
@@ -573,9 +605,14 @@ def delete_class(class_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+# ============================================================================
+# STUDENT MANAGEMENT ROUTES
+# ============================================================================
+
 # Add student via modal form
 @app.route('/add_student', methods=['POST'])
 def add_student():
+    """Add a new student with auto-generated FAX ID"""
     data = request.get_json()
     required_fields = ['name']
     for field in required_fields:
@@ -626,14 +663,20 @@ def add_student():
     conn.close()
     return jsonify(result_data)
 
-# search page
+# ============================================================================
+# PAGE ROUTES
+# ============================================================================
+
+# Search page
 @app.route("/search_page")
 def class_search():
+    """Render the search page"""
     return render_template('search.html', color='blue')
 
-# settings page
+# Settings page
 @app.route("/settings")
 def settings():
+    """Render the settings page with class management data"""
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -646,7 +689,12 @@ def settings():
     
     return render_template('settings.html', classes=[dict(row) for row in classes])
 
+# ============================================================================
+# AUTHENTICATION SYSTEM
+# ============================================================================
+
 def verify_password(stored_password, provided_password):
+    """Verify password using PBKDF2 hashing"""
     salt_hex, key_hex = stored_password.split(':')
     salt = bytes.fromhex(salt_hex)
     new_key = hashlib.pbkdf2_hmac('sha256', provided_password.encode('utf-8'), salt, 100000)
@@ -654,6 +702,7 @@ def verify_password(stored_password, provided_password):
 
 @app.before_request
 def check_authentication():
+    """Check authentication for all routes except login and static files"""
     # Allow access to login page and static files
     if request.endpoint in ['login'] or request.path.startswith('/static/'):
         return
@@ -679,9 +728,10 @@ def check_authentication():
         # Database error, redirect to login for safety
         return redirect('/login')
 
-# login page
+# Login page
 @app.route("/login", methods=['GET', 'POST'])
 def login():
+    """Handle user login with persistent tokens"""
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -718,9 +768,10 @@ def login():
     
     return render_template('auth/login.html')
 
-# logout route
+# Logout route
 @app.route("/logout", methods=['POST'])
 def logout():
+    """Handle user logout and clear persistent tokens"""
     # Clear the persistent token from database
     token = request.cookies.get('cookie')
     if token:
@@ -738,9 +789,10 @@ def logout():
     response.set_cookie('cookie', '', expires=0)
     return response
 
-# main page load
+# Main page load
 @app.route("/")
 def main_page():
+    """Render the main dashboard with outstanding book checkouts"""
     
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -760,9 +812,14 @@ def main_page():
     
     return render_template('main.html', outstanding_books=outstanding_books)
 
-# file upload routes for settings
+# ============================================================================
+# FILE UPLOAD AND EXPORT ROUTES
+# ============================================================================
+
+# File upload routes for settings
 @app.route('/upload_books', methods=['POST'])
 def upload_books():
+    """Handle bulk book import via CSV upload"""
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file selected'})
     
@@ -778,9 +835,10 @@ def upload_books():
     else:
         return jsonify({'success': False, 'error': 'Please select a CSV file'})
 
-# convert book data to csv
+# Convert book data to CSV
 @app.route('/export_books')
 def export_books():
+    """Export all books to CSV format"""
 
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -789,9 +847,6 @@ def export_books():
     cur.execute('SELECT * FROM books ORDER BY title')
     books = cur.fetchall()
     conn.close()
-    
-    import io
-    from flask import make_response
     
     output = io.StringIO()
     output.write('title,subtitle,author,localnumber,publisher,published\n')
@@ -805,10 +860,10 @@ def export_books():
     
     return response
 
-# find unreturned books and export to csv
-
+# Find unreturned books and export to CSV
 @app.route('/export_outstanding_students')
 def export_outstanding_students():
+    """Export students with outstanding book checkouts to CSV"""
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -824,9 +879,6 @@ def export_outstanding_students():
     checkouts = cur.fetchall()
     conn.close()
     
-    import io
-    from flask import make_response
-    
     output = io.StringIO()
     output.write('student_name,book_title,checkout_date\n')
     
@@ -841,6 +893,7 @@ def export_outstanding_students():
 
 @app.route('/upload_students', methods=['POST'])
 def upload_students():
+    """Handle bulk student import via CSV upload"""
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file selected'})
     
@@ -910,6 +963,7 @@ def upload_students():
 
 @app.route('/upload_backup', methods=['POST'])
 def upload_backup():
+    """Handle database backup file upload"""
     if 'file' not in request.files:
         return jsonify({'success': False, 'error': 'No file selected'})
     
@@ -924,10 +978,13 @@ def upload_backup():
         return jsonify({'success': False, 'error': 'Please select a database file (.db or .sqlite)'})
 
 
-# search functionality
+# ============================================================================
+# SEARCH FUNCTIONALITY
+# ============================================================================
+
 @app.route('/search')
 def search():
-    import re
+    """Full-text search across books and students with HTML results"""
     q = request.args.get('q', '').strip()
     results = []
     if q:
@@ -961,7 +1018,6 @@ def search():
             
         conn.close()
 
-    import urllib.parse
     student_results = []
     if q:
         conn = sqlite3.connect(str(db_path))
@@ -1016,9 +1072,14 @@ def search():
         html = ''
     return html
 
-# book detail page
+# ============================================================================
+# DETAIL PAGE ROUTES
+# ============================================================================
+
+# Book detail page
 @app.route('/book/<localnumber>')
 def book_detail(localnumber):
+    """Display detailed information for a specific book"""
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -1043,6 +1104,7 @@ def book_detail(localnumber):
 # Student detail page
 @app.route('/student/<student_id>')
 def student_detail(student_id):
+    """Display detailed information for a specific student"""
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -1072,6 +1134,7 @@ def student_detail(student_id):
 # Class detail page
 @app.route('/class/<class_name>')
 def class_detail(class_name):
+    """Display detailed information for a specific class"""
     class_name = unquote(class_name)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -1092,9 +1155,14 @@ def class_detail(class_name):
         return f"No class found with name: {class_name}", 404
     return render_template('class_detail.html', class_info=class_info, students=students)
 
+# ============================================================================
+# API ENDPOINTS
+# ============================================================================
+
 # API endpoint to get book details by local number
 @app.route('/api/book/<localnumber>')
 def book_api(localnumber):
+    """JSON API endpoint for book information including checkout status"""
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -1133,9 +1201,10 @@ def book_api(localnumber):
     return result
 
 
-# book return endpoint
+# Book return endpoint
 @app.route('/return_book', methods=['POST'])
 def return_book():
+    """Process book returns with background database update"""
     checkout_id = request.form.get('checkout_id')
     redirect_url = request.form.get('redirect_url', '/')
     
@@ -1148,7 +1217,6 @@ def return_book():
         conn.close()
     
     # Run database update in background thread
-    import threading
     thread = threading.Thread(target=update_database)
     thread.daemon = True
     thread.start()
@@ -1160,7 +1228,12 @@ def return_book():
 
         return redirect(redirect_url)
 
+# ============================================================================
+# DATABASE INITIALIZATION AND UTILITIES
+# ============================================================================
+
 def check_setup(data_path):
+    """Initialize database tables if they don't exist"""
     conn = sqlite3.connect(str(data_path))
     cur = conn.cursor()
     cur.executescript('''
@@ -1205,7 +1278,8 @@ def check_setup(data_path):
 ''')
     conn.close()
 
-def check_database_validity(db_path, output_path = pathlib.Path(__file__).parent / 'books_missing_data.csv'):
+def check_database_validity(db_path, output_path=pathlib.Path(__file__).parent / 'books_missing_data.csv'):
+    """Check for books with missing essential data and export to CSV"""
     conn = sqlite3.connect(str(db_path))
     try:
         query = """
@@ -1223,15 +1297,16 @@ def check_database_validity(db_path, output_path = pathlib.Path(__file__).parent
     finally:
         conn.close()
 
+# ============================================================================
+# APPLICATION STARTUP
+# ============================================================================
+
 # Initialize database on startup
-
-
-# ============================================================================
-# BACKUP ROUTES
-# ============================================================================
+check_setup(db_path)
 
 @app.route('/force_backup', methods=['POST'])
 def force_backup():
+    """Manual backup endpoint for user-initiated backups"""
     """Manual backup endpoint"""
     try:
         success = create_backup('manual', 'user_initiated')
@@ -1244,6 +1319,7 @@ def force_backup():
 
 @app.route('/list_backups')
 def list_backups():
+    """Get list of available backup files with metadata"""
     """Get list of available backups"""
     try:
         backups = get_backup_list()
@@ -1253,6 +1329,7 @@ def list_backups():
 
 @app.route('/backup_status')
 def backup_status():
+    """Get backup system status and recent backup information"""
     """Get backup system status and recent backups"""
     try:
         backups = get_backup_list()
@@ -1281,6 +1358,7 @@ def backup_status():
 
 @app.route('/restore_backup', methods=['POST'])
 def restore_backup_route():
+    """Restore database from a selected backup file"""
     """Restore database from backup"""
     try:
         backup_file = request.json.get('backup_file')
@@ -1294,6 +1372,7 @@ def restore_backup_route():
 
 @app.route('/download_backup/<path:backup_file>')
 def download_backup(backup_file):
+    """Download a backup file to local system"""
     """Download a backup file"""
     try:
         backup_path = pathlib.Path(backup_file)
@@ -1306,6 +1385,7 @@ def download_backup(backup_file):
 
 @app.route('/clear_checkouts', methods=['POST'])
 def clear_checkouts():
+    """Clear all checkout records from the database"""
     """Clear all checkout records"""
     try:
         # Create backup before clearing checkouts
@@ -1332,8 +1412,9 @@ def clear_checkouts():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-check_setup(db_path)
+# ============================================================================
+# APPLICATION ENTRY POINT
+# ============================================================================
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
-        
