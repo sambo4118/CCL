@@ -212,16 +212,21 @@
                     data-checkout-date="{{ c['checkout_date'] }}" 
                     data-due-date="{{ c['checkout_date'] | due_date }}">
                     <td colspan="3" style="padding:0; border:none; background:none;">
-                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
-                            <div style="flex:1.7; background: linear-gradient(90deg, #14161a 0%, var(--bulma-danger) 100%); padding:0.5rem 1rem; border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; display: flex; align-items: center; min-width: 0;">
-                                <div style="flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 1rem;">
-                                    <a href="/book/{{ c['localnumber'] | urlencode }}" class="has-text-white has-text-weight-semibold">{{ c['title'] }}</a>
+                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex; height: 140px;">
+                            <div style="flex:1.7; background: linear-gradient(90deg, #14161a 0%, var(--bulma-danger) 100%); border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; display: flex; align-items: center; min-width: 0;">
+                                <div style="width: 100px; min-width: 100px; display: flex; align-items: center; justify-content: center; padding: 0.5rem;">
+                                    <img src="/api/book/{{ c['localnumber'] | urlencode }}/cover" alt="Book cover" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'text-align: center; color: #6a9a75;\'><i class=\'fas fa-book fa-2x\'></i></div>'">
                                 </div>
-                                <div style="flex-shrink: 0; text-align: center; margin: 0 1rem;" title="Checked out: {{ c['checkout_date'] | nice_date }}">
-                                    <div class="has-tooltip">{{ c['checkout_date'] | due_date }}</div>
-                                </div>
-                                <div style="flex: 1; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 1rem;">
-                                    <a href="/student/{{ c['student_fax_id'] }}" class="has-text-white has-text-weight-semibold">{{ c['student_name'] }}</a>
+                                <div style="flex: 1; padding: 0 1rem; display: flex; align-items: center; min-width: 0;">
+                                    <div style="flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 1rem;">
+                                        <a href="/book/{{ c['localnumber'] | urlencode }}" class="has-text-white has-text-weight-semibold" style="font-size: 1.1rem;">{{ c['title'] }}</a>
+                                    </div>
+                                    <div style="flex-shrink: 0; text-align: center; margin: 0 1rem;" title="Checked out: {{ c['checkout_date'] | nice_date }}">
+                                        <div class="has-tooltip">{{ c['checkout_date'] | due_date }}</div>
+                                    </div>
+                                    <div style="flex: 1; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 1rem;">
+                                        <a href="/student/{{ c['student_fax_id'] }}" class="has-text-white has-text-weight-semibold">{{ c['student_name'] }}</a>
+                                    </div>
                                 </div>
                             </div>
                             <form method="POST" action="/return_book" style="margin: 0; flex: 0.3;" onsubmit="return handleReturnBook(this, event);">
@@ -279,6 +284,16 @@ document.addEventListener('DOMContentLoaded', function() {
             addCheckoutForm.style.display = 'none';
             generateBarcodeForm.style.display = 'none';
             modalSaveBtn.textContent = 'Save';
+            // Reset form and fetch next localnumber
+            addBookForm.reset();
+            fetch('/next_localnumber')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.next_localnumber) {
+                        addBookForm.querySelector('[name="localnumber"]').value = data.next_localnumber;
+                    }
+                })
+                .catch(error => console.error('Error fetching next localnumber:', error));
         } else if (title === 'Add Student') {
             addBookForm.style.display = 'none';
             addStudentForm.style.display = '';

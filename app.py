@@ -578,6 +578,28 @@ def search_books():
     conn.close()
     return jsonify({'books': [dict(row) for row in results]})
 
+# Get next available localnumber
+@app.route('/next_localnumber')
+def next_localnumber():
+    """Get the next available localnumber (max + 1)"""
+    conn = sqlite3.connect(str(db_path))
+    cur = conn.cursor()
+    try:
+        cur.execute('SELECT localnumber FROM books')
+        all_localnumbers = cur.fetchall()
+        
+        numeric_localnumbers = []
+        for (localnumber,) in all_localnumbers:
+            if localnumber and str(localnumber).isdigit():
+                numeric_localnumbers.append(int(localnumber))
+        
+        next_number = max(numeric_localnumbers) + 1 if numeric_localnumbers else 1
+        conn.close()
+        return jsonify({'next_localnumber': str(next_number)})
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 500
+
 # ============================================================================
 # CLASS MANAGEMENT ROUTES
 # ============================================================================
@@ -1004,36 +1026,6 @@ def main_page():
     
     return render_template('main.html', outstanding_books=outstanding_books)
 
-# Test endpoint to verify Watchtower updates
-@app.route('/watchtower_test')
-def watchtower_test():
-    """Test endpoint to verify new modules are installed after Watchtower update"""
-    try:
-        # Import the test module (python-dateutil)
-        from dateutil import parser, relativedelta
-        from dateutil.tz import tzutc
-        
-        # Use the module to prove it's installed
-        now = datetime.now()
-        future = now + relativedelta.relativedelta(months=3, days=7)
-        
-        return jsonify({
-            'success': True,
-            'message': 'Watchtower test successful! python-dateutil is installed.',
-            'module': 'python-dateutil',
-            'test_data': {
-                'current_time': now.isoformat(),
-                'future_time': future.isoformat(),
-                'difference': '3 months and 7 days'
-            },
-            'container_restart_confirmed': True
-        })
-    except ImportError as e:
-        return jsonify({
-            'success': False,
-            'message': 'Module not found - Watchtower has not updated yet or build failed',
-            'error': str(e)
-        }), 500
 
 # ============================================================================
 # FILE UPLOAD AND EXPORT ROUTES

@@ -4,4 +4,3 @@ requests==2.31.0
 aiohttp==3.9.1
 gunicorn
 APScheduler
-python-dateutil

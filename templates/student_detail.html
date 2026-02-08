@@ -40,17 +40,25 @@
             {% for c in checkouts %}
                 <tr>
                     <td colspan="3" style="padding:0; border:none; background:none;">
-                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
-                            <div style="{% if not c['return_date'] %}flex:1.7{% else %}flex:2{% endif %}; background: linear-gradient(90deg, #14161a 0%, {{ c['checkout_date'] | checkout_status(c['return_date']) }} 100%); padding:0.5rem 1rem; {% if not c['return_date'] %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem;{% else %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; border-top-right-radius:0.75rem; border-bottom-right-radius:0.75rem;{% endif %} display: flex; justify-content: space-between; align-items: center;">
-                                <div style="text-align: left;">
-                                    <a href="/book/{{ c['localnumber'] | urlencode }}" class="has-text-white has-text-weight-semibold">{{ c['title'] }}</a>
+                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex; height: 140px;">
+                            <div style="{% if not c['return_date'] %}flex:1.7{% else %}flex:2{% endif %}; background: linear-gradient(90deg, #14161a 0%, {{ c['checkout_date'] | checkout_status(c['return_date']) }} 100%); {% if not c['return_date'] %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem;{% else %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; border-top-right-radius:0.75rem; border-bottom-right-radius:0.75rem;{% endif %} display: flex; align-items: center;">
+                                <div style="width: 100px; min-width: 100px; display: flex; align-items: center; justify-content: center; padding: 0.5rem;">
+                                    <img src="/api/book/{{ c['localnumber'] | urlencode }}/cover" alt="Book cover" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'text-align: center; color: #6a9a75;\'><i class=\'fas fa-book fa-2x\'></i></div>'">
                                 </div>
-                                <div style="text-align: right;" title="Checked out: {{ c['checkout_date'] | nice_date }}">
-                                    {% if c['return_date'] %}
-                                        <div title="Returned: {{ c['return_date'] | nice_date }}">Returned: {{ c['return_date'] | nice_date }}</div>
-                                    {% else %}
-                                        <div>{{ c['checkout_date'] | due_date }}</div>
-                                    {% endif %}
+                                <div style="flex: 1; padding: 1rem; display: flex; justify-content: space-between; align-items: center; min-width: 0;">
+                                    <div style="text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; margin-right: 1rem;">
+                                        <a href="/book/{{ c['localnumber'] | urlencode }}" class="has-text-white has-text-weight-semibold" style="font-size: 1.1rem;">{{ c['title'] }}</a>
+                                        {% if c['author'] %}
+                                        <div style="color: white; margin-top: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c['author'] }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div style="text-align: right; flex-shrink: 0;" title="Checked out: {{ c['checkout_date'] | nice_date }}">
+                                        {% if c['return_date'] %}
+                                            <div title="Returned: {{ c['return_date'] | nice_date }}">Returned: {{ c['return_date'] | nice_date }}</div>
+                                        {% else %}
+                                            <div>{{ c['checkout_date'] | due_date }}</div>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                             {% if not c['return_date'] %}
