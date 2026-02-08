@@ -3,6 +3,7 @@
 # ============================================================================
 
 # Standard library imports
+import asyncio
 import atexit
 import gzip
 import hashlib
@@ -19,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.parse
 from datetime import datetime, timedelta
 from threading import Thread
@@ -37,6 +39,22 @@ app = Flask(__name__)
 
 # Database path configuration
 db_path = pathlib.Path(__file__).parent / 'library.db'
+
+# Book cover import state
+cover_import_state = {
+    'running': False,
+    'progress': {'current': 0, 'total': 0, 'books_updated': 0},
+    'log': [],
+    'thread': None,
+    'stop_requested': False,
+    'completed': False,
+    'summary': {}
+}
+
+# On-demand cover download rate limiting
+cover_download_lock = threading.Lock()
+last_cover_download_time = 0
+COVER_RATE_LIMIT = 0.5  # seconds between downloads
 
 # ============================================================================
 # TEMPLATE FILTERS
@@ -109,6 +127,18 @@ def checkout_status_filter(checkout_date_str, return_date_str=None):
             return 'var(--bulma-warning)'
     except Exception:
         return 'var(--bulma-warning)' 
+
+# Generate cover image URL or fallback to Open Library
+@app.template_filter('cover_url')
+def cover_url_filter(isbn, size='M'):
+    """Generate cover image URL for a book by ISBN
+    Returns Open Library cover URL as fallback if no local cover exists
+    """
+    if not isbn:
+        return None
+    # Clean ISBN
+    clean = isbn.replace('-', '').replace(' ', '').strip()
+    return f'https://covers.openlibrary.org/b/isbn/{clean}-{size}.jpg'
 
 # ============================================================================
 # BACKUP SYSTEM CONFIGURATION
@@ -1271,22 +1301,44 @@ def search():
         
         conn.close()
     # display search results
-    html = '<ul style="list-style: none; padding: 0;">'
+    html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">'
+    
+    # Book results with covers
     for row in results:
         book_url = '/book/' + urllib.parse.quote(str(row["localnumber"]))
-        html += f'''<li style="display: flex; align-items: center; margin-bottom: 0.5rem; white-space: nowrap; overflow: hidden;">
-            <a href="{book_url}" class="has-text-primary" style="flex-shrink: 0; margin-right: 0.5rem;"><strong>{row["title"]}</strong></a>
-            <span style="color:white; flex-shrink: 1; margin-right: 0.5rem; overflow: hidden; text-overflow: ellipsis; min-width: 0;"> — {row["author"]} </span>
-            <span style="color:gray; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis;">({row["localnumber"]}, {row["booklocation"]})</span>
-        </li>'''
+        cover_url = f'/api/book/{urllib.parse.quote(str(row["localnumber"]))}/cover'
+        
+        html += f'''
+        <a href="{book_url}" style="text-decoration: none;">
+            <div style="border-radius: 0.75rem; overflow: hidden; background: linear-gradient(90deg, #14161a 0%, #2b2d31 100%); display: flex; height: 140px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="width: 100px; min-width: 100px; background: #1a1c20; display: flex; align-items: center; justify-content: center; padding: 0.5rem;">
+                    <img src="{cover_url}" alt="Book cover" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'text-align: center; color: #6a9a75;\\'><i class=\\'fas fa-book fa-2x\\'></i></div>'">
+                </div>
+                <div style="flex: 1; padding: 1rem; display: flex; flex-direction: column; justify-content: center; min-width: 0;">
+                    <div class="has-text-primary" style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{row["title"]}</div>
+                    <div style="color: white; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{row["author"]}</div>
+                    <div style="color: gray; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Location: {row["booklocation"]} • #{row["localnumber"]}</div>
+                </div>
+            </div>
+        </a>'''
+    
+    # Student results
     for student in student_results:
         student_url = f'/student/{student["fax_id"]}'
-        html += f'''<li style="display: flex; align-items: center; margin-bottom: 0.5rem; white-space: nowrap; overflow: hidden;">
-            <a href="{student_url}" class="has-text-info" style="flex-shrink: 0; margin-right: 0.5rem;"><strong>{student["name"]}</strong></a>
-            <span style="color:white; flex-shrink: 1; margin-right: 0.5rem; overflow: hidden; text-overflow: ellipsis; min-width: 0;"> — {student["teacher_name"]} </span>
-            <span style="color:gray; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis;">({student["class_name"]})</span>
-        </li>'''
-    html += '</ul>'
+        html += f'''
+        <a href="{student_url}" style="text-decoration: none;">
+            <div style="border-radius: 0.75rem; overflow: hidden; background: linear-gradient(90deg, #14161a 0%, #2b2d31 100%); display: flex; align-items: center; padding: 1rem; min-height: 60px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                <div style="margin-right: 1rem; color: #5bc0de;">
+                    <i class="fas fa-user fa-2x"></i>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <div class="has-text-info" style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{student["name"]}</div>
+                    <div style="color: white; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{student["teacher_name"]} • {student["class_name"]}</div>
+                </div>
+            </div>
+        </a>'''
+    
+    html += '</div>'
     if not results and not student_results and q:
         html = f'<p>No results for "{q}"</p>'
     elif not q:
@@ -1422,6 +1474,98 @@ def book_api(localnumber):
     return result
 
 
+# API endpoint to get book cover image
+@app.route('/api/book/<localnumber>/cover')
+def book_cover(localnumber):
+    """Serve book cover image from database, with on-demand downloading (rate-limited)"""
+    global last_cover_download_time
+    
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT cover_image, isbn FROM books WHERE localnumber = ?", (localnumber,))
+    book = cur.fetchone()
+    
+    if not book:
+        conn.close()
+        return {'error': 'Book not found'}, 404
+    
+    # If we have a cover image in the database, serve it
+    # Skip if it's the 'NO_COVER' marker
+    if book['cover_image'] and book['cover_image'] != b'NO_COVER':
+        conn.close()
+        response = make_response(book['cover_image'])
+        response.headers['Content-Type'] = 'image/jpeg'
+        response.headers['Cache-Control'] = 'public, max-age=31536000'  # Cache for 1 year
+        return response
+    
+    # If already marked as NO_COVER, don't retry
+    if book['cover_image'] == b'NO_COVER':
+        conn.close()
+        return {'error': 'No cover available'}, 404
+    
+    # Try to download the cover on-demand (with rate limiting)
+    isbn = book['isbn']
+    if isbn:
+        # Try to acquire the lock without blocking
+        if cover_download_lock.acquire(blocking=False):
+            try:
+                # Check if enough time has passed since last download
+                current_time = time.time()
+                time_since_last = current_time - last_cover_download_time
+                
+                if time_since_last >= COVER_RATE_LIMIT:
+                    # Enough time has passed, download the cover
+                    clean_isbn = isbn.replace('-', '').replace(' ', '').strip()
+                    url = f'https://covers.openlibrary.org/b/isbn/{clean_isbn}-L.jpg'
+                    
+                    try:
+                        response = requests.get(url, timeout=5)
+                        if response.status_code == 200 and len(response.content) > 1000:
+                            # Valid cover image, save it
+                            cur.execute(
+                                "UPDATE books SET cover_image = ? WHERE localnumber = ?",
+                                (response.content, localnumber)
+                            )
+                            conn.commit()
+                            last_cover_download_time = time.time()
+                            conn.close()
+                            
+                            # Serve the freshly downloaded cover
+                            img_response = make_response(response.content)
+                            img_response.headers['Content-Type'] = 'image/jpeg'
+                            img_response.headers['Cache-Control'] = 'public, max-age=31536000'
+                            return img_response
+                        else:
+                            # No cover available, mark it
+                            cur.execute(
+                                "UPDATE books SET cover_image = ? WHERE localnumber = ?",
+                                (b'NO_COVER', localnumber)
+                            )
+                            conn.commit()
+                            last_cover_download_time = time.time()
+                            conn.close()
+                            return {'error': 'No cover available'}, 404
+                    except Exception as e:
+                        # Download failed, don't mark as NO_COVER (might be temporary)
+                        conn.close()
+                        return {'error': 'No cover available'}, 404
+                else:
+                    # Too soon since last download, return 404 for now
+                    conn.close()
+                    return {'error': 'Rate limited - try again later'}, 404
+            finally:
+                cover_download_lock.release()
+        else:
+            # Another download is in progress, return 404 for now
+            conn.close()
+            return {'error': 'Download in progress'}, 404
+    
+    # No ISBN, can't download
+    conn.close()
+    return {'error': 'No cover available'}, 404
+
+
 # Book return endpoint
 @app.route('/return_book', methods=['POST'])
 def return_book():
@@ -1483,7 +1627,8 @@ def check_setup(data_path):
         publisher TEXT,
         published TEXT,
         isbn TEXT,
-        booklocation TEXT
+        booklocation TEXT,
+        cover_image BLOB
     );
 
     CREATE TABLE IF NOT EXISTS checkouts (
@@ -1748,6 +1893,179 @@ def clear_checkouts():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
+# BOOK COVER IMPORT ROUTES
+# ============================================================================
+
+@app.route('/start_cover_import', methods=['POST'])
+def start_cover_import():
+    """Start the book cover import process in a background thread"""
+    global cover_import_state
+    
+    if cover_import_state['running']:
+        return jsonify({'success': False, 'error': 'Import already running'})
+    
+    # Reset state
+    cover_import_state['running'] = True
+    cover_import_state['stop_requested'] = False
+    cover_import_state['completed'] = False
+    cover_import_state['progress'] = {'current': 0, 'total': 0, 'books_updated': 0}
+    cover_import_state['log'] = []
+    cover_import_state['summary'] = {}
+    
+    # Start import in background thread
+    import_thread = Thread(target=run_cover_import_thread)
+    import_thread.daemon = True
+    import_thread.start()
+    cover_import_state['thread'] = import_thread
+    
+    return jsonify({'success': True})
+
+
+@app.route('/stop_cover_import', methods=['POST'])
+def stop_cover_import():
+    """Stop the book cover import process"""
+    global cover_import_state
+    
+    cover_import_state['stop_requested'] = True
+    cover_import_state['log'].append('⚠ Stop requested by user...')
+    
+    return jsonify({'success': True})
+
+
+@app.route('/cover_import_status')
+def cover_import_status():
+    """Get the current status of the book cover import"""
+    global cover_import_state
+    
+    return jsonify({
+        'running': cover_import_state['running'],
+        'progress': cover_import_state['progress'],
+        'log': cover_import_state['log'][-100:],  # Last 100 lines
+        'completed': cover_import_state['completed'],
+        'summary': cover_import_state['summary']
+    })
+
+
+def run_cover_import_thread():
+    """Background thread function to run the cover import with async support"""
+    global cover_import_state
+    
+    try:
+        cover_import_state['log'].append('=== IMPORT THREAD STARTED ===')
+        
+        # Import the functions from import_book_covers.py
+        cover_import_state['log'].append('Importing modules...')
+        from import_book_covers import (
+            add_cover_column_if_needed,
+            get_books_needing_covers,
+            download_batch
+        )
+        cover_import_state['log'].append('✓ Modules imported successfully')
+        
+        cover_import_state['log'].append('Starting book cover import (async mode)...')
+        
+        # Ensure cover_image column exists
+        cover_import_state['log'].append('Checking database schema...')
+        add_cover_column_if_needed(db_path)
+        cover_import_state['log'].append('✓ Database ready')
+        
+        # Get books that need covers
+        cover_import_state['log'].append('Fetching books needing covers...')
+        books = get_books_needing_covers(db_path)
+        cover_import_state['log'].append(f'Query returned {len(books) if books else 0} books')
+        
+        if not books:
+            cover_import_state['log'].append('✓ All books with ISBNs already have covers!')
+            cover_import_state['running'] = False
+            cover_import_state['completed'] = True
+            cover_import_state['summary'] = {
+                'total_processed': 0,
+                'successful': 0,
+                'failed': 0,
+                'books_updated': 0
+            }
+            return
+        
+        total = len(books)
+        total_books = sum(len(b['rowids']) for b in books)
+        cover_import_state['progress']['total'] = total
+        cover_import_state['log'].append(f'Found {total} unique ISBNs ({total_books} books)')
+        cover_import_state['log'].append('Downloading with 10 concurrent connections...')
+        
+        # Progress callback for async downloads
+        def progress_callback(current, total_items, message):
+            if cover_import_state['stop_requested']:
+                return
+            cover_import_state['progress']['current'] = current
+            cover_import_state['log'].append(f"[{current}/{total_items}] {message}")
+        
+        # Run async download in this thread's event loop
+        cover_import_state['log'].append('Starting async download...')
+        start_time = time.time()
+        
+        try:
+            result = asyncio.run(download_batch(books, db_path, progress_callback))
+            cover_import_state['log'].append(f'Async download completed. Result: {result}')
+        except Exception as async_error:
+            cover_import_state['log'].append(f'❌ Async error: {str(async_error)}')
+            import traceback
+            cover_import_state['log'].append(traceback.format_exc())
+            raise
+        
+        elapsed = time.time() - start_time
+        
+        successful = result.get('successful', 0)
+        failed = result.get('failed', 0)
+        books_updated = result.get('books_updated', 0)
+        
+        cover_import_state['log'].append(f'Results: successful={successful}, failed={failed}, books_updated={books_updated}')
+        
+        # Summary
+        cover_import_state['summary'] = {
+            'total_processed': successful + failed,
+            'successful': successful,
+            'failed': failed,
+            'books_updated': books_updated,
+            'elapsed_time': elapsed,
+            'rate': (successful + failed) / elapsed if elapsed > 0 else 0
+        }
+        
+        cover_import_state['log'].append('')
+        cover_import_state['log'].append('=' * 50)
+        cover_import_state['log'].append('Import Complete!')
+        cover_import_state['log'].append(f'Time: {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)')
+        cover_import_state['log'].append(f'Unique ISBNs processed: {successful + failed}')
+        cover_import_state['log'].append(f'  - Successfully downloaded: {successful}')
+        cover_import_state['log'].append(f'  - Not available: {failed}')
+        cover_import_state['log'].append(f'Total books updated: {books_updated}')
+        cover_import_state['log'].append(f'Download rate: {result["successful"] + result["failed"]}/{elapsed:.0f}s = {(successful + failed) / elapsed:.1f} covers/sec')
+        cover_import_state['log'].append('=' * 50)
+        
+        cover_import_state['completed'] = True
+        
+    except Exception as e:
+        cover_import_state['log'].append('')
+        cover_import_state['log'].append('=' * 50)
+        cover_import_state['log'].append(f'❌ ERROR OCCURRED: {str(e)}')
+        cover_import_state['log'].append('=' * 50)
+        import traceback
+        cover_import_state['log'].append(traceback.format_exc())
+        
+        # Set summary even on error so UI displays properly
+        cover_import_state['summary'] = {
+            'total_processed': 0,
+            'successful': 0,
+            'failed': 0,
+            'books_updated': 0,
+            'error': str(e)
+        }
+        cover_import_state['completed'] = True
+    
+    finally:
+        cover_import_state['running'] = False
 
 # ============================================================================
 # APPLICATION ENTRY POINT
