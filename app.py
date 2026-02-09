@@ -40,17 +40,6 @@ app = Flask(__name__)
 # Database path configuration
 db_path = pathlib.Path(__file__).parent / 'library.db'
 
-# Book cover import state
-cover_import_state = {
-    'running': False,
-    'progress': {'current': 0, 'total': 0, 'books_updated': 0},
-    'log': [],
-    'thread': None,
-    'stop_requested': False,
-    'completed': False,
-    'summary': {}
-}
-
 # On-demand cover download rate limiting
 cover_download_lock = threading.Lock()
 last_cover_download_time = 0
@@ -1052,7 +1041,7 @@ def upload_books():
             temp_path = temp_file.name
 
         print('[upload_books] Reading CSV into DataFrame...')
-        df = pandas.read_csv(temp_path, quotechar='"', doublequote=True)
+        df = pandas.read_csv(temp_path, quotechar='"', doublequote=True, engine='python', on_bad_lines='skip', dtype=str)
         print(f'[upload_books] DataFrame shape: {df.shape}')
         print(f'[upload_books] DataFrame columns: {list(df.columns)}')
 
@@ -1076,6 +1065,9 @@ def upload_books():
             'Location': 'booklocation'
         }
         df_selected.rename(columns=col_map, inplace=True)
+        
+        # Add cover_image column as NULL so it's preserved during import
+        df_selected['cover_image'] = None
 
         db_path = pathlib.Path(__file__).parent / 'library.db'
         conn = sqlite3.connect(str(db_path))
@@ -1544,7 +1536,8 @@ def book_cover(localnumber):
                     
                     try:
                         response = requests.get(url, timeout=5)
-                        if response.status_code == 200 and len(response.content) > 1000:
+                        # Accept images >= 500 bytes (more lenient than 1000)
+                        if response.status_code == 200 and len(response.content) >= 500:
                             # Valid cover image, save it
                             cur.execute(
                                 "UPDATE books SET cover_image = ? WHERE localnumber = ?",
@@ -1559,8 +1552,8 @@ def book_cover(localnumber):
                             img_response.headers['Content-Type'] = 'image/jpeg'
                             img_response.headers['Cache-Control'] = 'public, max-age=31536000'
                             return img_response
-                        else:
-                            # No cover available, mark it
+                        elif response.status_code == 404:
+                            # API explicitly says cover not found, mark it to avoid retries
                             cur.execute(
                                 "UPDATE books SET cover_image = ? WHERE localnumber = ?",
                                 (b'NO_COVER', localnumber)
@@ -1569,24 +1562,77 @@ def book_cover(localnumber):
                             last_cover_download_time = time.time()
                             conn.close()
                             return {'error': 'No cover available'}, 404
+                        else:
+                            # API returned non-200 (not 404), might be temporary issue
+                            # Don't mark as NO_COVER, don't update rate limit timer
+                            conn.close()
+                            return {'error': 'Cover service temporarily unavailable'}, 503
                     except Exception as e:
-                        # Download failed, don't mark as NO_COVER (might be temporary)
+                        # Network error or timeout, don't mark as NO_COVER (might be temporary)
+                        # Don't update rate limit timer to allow quicker retry
                         conn.close()
-                        return {'error': 'No cover available'}, 404
+                        return {'error': 'Cover service temporarily unavailable'}, 503
                 else:
-                    # Too soon since last download, return 404 for now
+                    # Too soon since last download, return 503 for now
                     conn.close()
-                    return {'error': 'Rate limited - try again later'}, 404
+                    return {'error': 'Rate limited - try again later'}, 503
             finally:
                 cover_download_lock.release()
         else:
-            # Another download is in progress, return 404 for now
+            # Another download is in progress, return 503 for now
             conn.close()
-            return {'error': 'Download in progress'}, 404
+            return {'error': 'Download in progress'}, 503
     
     # No ISBN, can't download
     conn.close()
     return {'error': 'No cover available'}, 404
+
+
+# API endpoint to upload a book cover image
+@app.route('/api/book/<localnumber>/cover/upload', methods=['POST'])
+def upload_book_cover(localnumber):
+    """Upload a custom cover image for a book"""
+    if 'cover' not in request.files:
+        return jsonify({'success': False, 'error': 'No file provided'}), 400
+    
+    file = request.files['cover']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+    
+    # Validate it's an image file
+    allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+    if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+        return jsonify({'success': False, 'error': 'Only image files are allowed'}), 400
+    
+    try:
+        # Read and store the image in the database
+        image_data = file.read()
+        
+        # Validate it's a real image and not too large
+        if len(image_data) > 5 * 1024 * 1024:  # 5MB limit
+            return jsonify({'success': False, 'error': 'File too large (max 5MB)'}), 400
+        
+        if len(image_data) < 100:  # Minimum reasonable size
+            return jsonify({'success': False, 'error': 'File too small'}), 400
+        
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        
+        # Check if book exists
+        cur.execute("SELECT rowid FROM books WHERE localnumber = ?", (localnumber,))
+        book = cur.fetchone()
+        if not book:
+            conn.close()
+            return jsonify({'success': False, 'error': 'Book not found'}), 404
+        
+        # Update the cover_image column
+        cur.execute("UPDATE books SET cover_image = ? WHERE localnumber = ?", (image_data, localnumber))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Cover uploaded successfully'}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # Book return endpoint
@@ -1624,7 +1670,9 @@ def check_setup(data_path):
     """Initialize database tables if they don't exist"""
     conn = sqlite3.connect(str(data_path))
     cur = conn.cursor()
-    cur.executescript('''
+    
+    try:
+        cur.executescript('''
     CREATE TABLE IF NOT EXISTS classes (
         id INTEGER PRIMARY KEY,
         teacher_name TEXT,
@@ -1700,6 +1748,28 @@ def check_setup(data_path):
         WHERE localnumber = NEW.localnumber;
     END;
     ''')
+        conn.commit()
+        print("[DB SETUP] Tables created successfully", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[DB SETUP] Error creating tables: {e}", file=sys.stderr, flush=True)
+        conn.close()
+        raise
+    
+    # Verify cover_image column exists
+    cur.execute("PRAGMA table_info(books)")
+    columns = [column[1] for column in cur.fetchall()]
+    print(f"[DB SETUP] Books table columns: {columns}", file=sys.stderr, flush=True)
+    
+    if 'cover_image' not in columns:
+        print("[DB SETUP] Adding missing cover_image column to books table", file=sys.stderr, flush=True)
+        try:
+            cur.execute("ALTER TABLE books ADD COLUMN cover_image BLOB")
+            conn.commit()
+            print("[DB SETUP] cover_image column added successfully", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"[DB SETUP] Error adding cover_image column: {e}", file=sys.stderr, flush=True)
+    
+    conn.close()
     conn.close()
 
 def check_database_validity(db_path, output_path=pathlib.Path(__file__).parent / 'books_missing_data.csv'):
@@ -1917,178 +1987,6 @@ def clear_checkouts():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
-# ============================================================================
-# BOOK COVER IMPORT ROUTES
-# ============================================================================
-
-@app.route('/start_cover_import', methods=['POST'])
-def start_cover_import():
-    """Start the book cover import process in a background thread"""
-    global cover_import_state
-    
-    if cover_import_state['running']:
-        return jsonify({'success': False, 'error': 'Import already running'})
-    
-    # Reset state
-    cover_import_state['running'] = True
-    cover_import_state['stop_requested'] = False
-    cover_import_state['completed'] = False
-    cover_import_state['progress'] = {'current': 0, 'total': 0, 'books_updated': 0}
-    cover_import_state['log'] = []
-    cover_import_state['summary'] = {}
-    
-    # Start import in background thread
-    import_thread = Thread(target=run_cover_import_thread)
-    import_thread.daemon = True
-    import_thread.start()
-    cover_import_state['thread'] = import_thread
-    
-    return jsonify({'success': True})
-
-
-@app.route('/stop_cover_import', methods=['POST'])
-def stop_cover_import():
-    """Stop the book cover import process"""
-    global cover_import_state
-    
-    cover_import_state['stop_requested'] = True
-    cover_import_state['log'].append('⚠ Stop requested by user...')
-    
-    return jsonify({'success': True})
-
-
-@app.route('/cover_import_status')
-def cover_import_status():
-    """Get the current status of the book cover import"""
-    global cover_import_state
-    
-    return jsonify({
-        'running': cover_import_state['running'],
-        'progress': cover_import_state['progress'],
-        'log': cover_import_state['log'][-100:],  # Last 100 lines
-        'completed': cover_import_state['completed'],
-        'summary': cover_import_state['summary']
-    })
-
-
-def run_cover_import_thread():
-    """Background thread function to run the cover import with async support"""
-    global cover_import_state
-    
-    try:
-        cover_import_state['log'].append('=== IMPORT THREAD STARTED ===')
-        
-        # Import the functions from import_book_covers.py
-        cover_import_state['log'].append('Importing modules...')
-        from import_book_covers import (
-            add_cover_column_if_needed,
-            get_books_needing_covers,
-            download_batch
-        )
-        cover_import_state['log'].append('✓ Modules imported successfully')
-        
-        cover_import_state['log'].append('Starting book cover import (async mode)...')
-        
-        # Ensure cover_image column exists
-        cover_import_state['log'].append('Checking database schema...')
-        add_cover_column_if_needed(db_path)
-        cover_import_state['log'].append('✓ Database ready')
-        
-        # Get books that need covers
-        cover_import_state['log'].append('Fetching books needing covers...')
-        books = get_books_needing_covers(db_path)
-        cover_import_state['log'].append(f'Query returned {len(books) if books else 0} books')
-        
-        if not books:
-            cover_import_state['log'].append('✓ All books with ISBNs already have covers!')
-            cover_import_state['running'] = False
-            cover_import_state['completed'] = True
-            cover_import_state['summary'] = {
-                'total_processed': 0,
-                'successful': 0,
-                'failed': 0,
-                'books_updated': 0
-            }
-            return
-        
-        total = len(books)
-        total_books = sum(len(b['rowids']) for b in books)
-        cover_import_state['progress']['total'] = total
-        cover_import_state['log'].append(f'Found {total} unique ISBNs ({total_books} books)')
-        cover_import_state['log'].append('Downloading with 10 concurrent connections...')
-        
-        # Progress callback for async downloads
-        def progress_callback(current, total_items, message):
-            if cover_import_state['stop_requested']:
-                return
-            cover_import_state['progress']['current'] = current
-            cover_import_state['log'].append(f"[{current}/{total_items}] {message}")
-        
-        # Run async download in this thread's event loop
-        cover_import_state['log'].append('Starting async download...')
-        start_time = time.time()
-        
-        try:
-            result = asyncio.run(download_batch(books, db_path, progress_callback))
-            cover_import_state['log'].append(f'Async download completed. Result: {result}')
-        except Exception as async_error:
-            cover_import_state['log'].append(f'❌ Async error: {str(async_error)}')
-            import traceback
-            cover_import_state['log'].append(traceback.format_exc())
-            raise
-        
-        elapsed = time.time() - start_time
-        
-        successful = result.get('successful', 0)
-        failed = result.get('failed', 0)
-        books_updated = result.get('books_updated', 0)
-        
-        cover_import_state['log'].append(f'Results: successful={successful}, failed={failed}, books_updated={books_updated}')
-        
-        # Summary
-        cover_import_state['summary'] = {
-            'total_processed': successful + failed,
-            'successful': successful,
-            'failed': failed,
-            'books_updated': books_updated,
-            'elapsed_time': elapsed,
-            'rate': (successful + failed) / elapsed if elapsed > 0 else 0
-        }
-        
-        cover_import_state['log'].append('')
-        cover_import_state['log'].append('=' * 50)
-        cover_import_state['log'].append('Import Complete!')
-        cover_import_state['log'].append(f'Time: {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)')
-        cover_import_state['log'].append(f'Unique ISBNs processed: {successful + failed}')
-        cover_import_state['log'].append(f'  - Successfully downloaded: {successful}')
-        cover_import_state['log'].append(f'  - Not available: {failed}')
-        cover_import_state['log'].append(f'Total books updated: {books_updated}')
-        cover_import_state['log'].append(f'Download rate: {result["successful"] + result["failed"]}/{elapsed:.0f}s = {(successful + failed) / elapsed:.1f} covers/sec')
-        cover_import_state['log'].append('=' * 50)
-        
-        cover_import_state['completed'] = True
-        
-    except Exception as e:
-        cover_import_state['log'].append('')
-        cover_import_state['log'].append('=' * 50)
-        cover_import_state['log'].append(f'❌ ERROR OCCURRED: {str(e)}')
-        cover_import_state['log'].append('=' * 50)
-        import traceback
-        cover_import_state['log'].append(traceback.format_exc())
-        
-        # Set summary even on error so UI displays properly
-        cover_import_state['summary'] = {
-            'total_processed': 0,
-            'successful': 0,
-            'failed': 0,
-            'books_updated': 0,
-            'error': str(e)
-        }
-        cover_import_state['completed'] = True
-    
-    finally:
-        cover_import_state['running'] = False
 
 # ============================================================================
 # APPLICATION ENTRY POINT
