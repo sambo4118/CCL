@@ -59,18 +59,36 @@
             
             /* Mobile forms */
             .field {
-                margin-bottom: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
             }
-            
+
             .input, .textarea, .select select {
                 font-size: 16px !important; /* Prevents zoom on iOS */
                 min-height: 44px !important;
                 padding: 0.75rem !important;
             }
-            
-            .label {
-                font-weight: 600 !important;
-                margin-bottom: 0.5rem !important;
+
+            /* Fix for icon overlapping input on mobile */
+            .control.has-icons-left .input,
+            .control.has-icons-left .textarea {
+                padding-left: 2.5em !important;
+            }
+
+            .control.has-icons-left .icon.is-left {
+                pointer-events: none !important;
+                width: 2.5em !important;
+                height: 2.5em !important;
+            }
+
+            .control.has-icons-right .input,
+            .control.has-icons-right .textarea {
+                padding-right: 2.5em !important;
+            }
+
+            .control.has-icons-right .icon.is-right {
+                pointer-events: none !important;
+                width: 2.5em !important;
+                height: 2.5em !important;
             }
             
             /* Mobile columns - stack vertically */

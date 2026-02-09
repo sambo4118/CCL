@@ -9,17 +9,15 @@
         </button>
         
         <!-- Book Cover -->
-        {% if book.isbn %}
         <div style="width: 140px; min-width: 140px; display: flex; align-items: center; justify-content: center; padding: 1rem; padding-left: 1.5rem;">
             <img src="/api/book/{{ book.localnumber }}/cover" 
                  alt="{{ book.title }}" 
                  style="max-width: 100%; max-height: 180px; border-radius: 0.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.3);"
                  onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'color: rgba(255,255,255,0.3); text-align: center;\'><i class=\'fas fa-book fa-3x\'></i></div>';">
         </div>
-        {% endif %}
         
         <!-- Book Info -->
-        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding-left: {% if book.isbn %}1rem{% else %}2rem{% endif %}; padding-right: 1rem;">
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding-left: 1rem; padding-right: 1rem;">
             <div class="block">
                 <h1 class="title is-2 has-text-weight-semibold">{{ book.title }}</h1>
             </div>
@@ -201,6 +199,15 @@
                             </div>
                         </div>
                     </div>
+                    <div class="column is-full">
+                        <div class="field">
+                            <label class="label">Upload Book Cover</label>
+                            <div class="control">
+                                <input class="input is-primary" type="file" id="edit-cover-file-input" accept="image/*" capture="environment">
+                            </div>
+                            <p class="help">Accepted formats: JPG, PNG, GIF, WebP (max 5MB). On mobile, tap to open camera.</p>
+                        </div>
+                    </div>
                 </div>
             </form>
         </section>
@@ -233,23 +240,48 @@ document.addEventListener('DOMContentLoaded', function() {
     cancelEditBookBtn.addEventListener('click', closeModal);
     editBookModal.querySelector('.modal-background').addEventListener('click', closeModal);
     
-    saveBookBtn.addEventListener('click', function() {
+    saveBookBtn.addEventListener('click', async function() {
         const formData = new FormData(editBookForm);
-        const data = Object.fromEntries(formData.entries());
+        const coverFile = document.getElementById('edit-cover-file-input');
         
         // Show loading state
         saveBookBtn.disabled = true;
         saveBookBtn.innerHTML = '<span class="icon"><i class="fas fa-spinner fa-spin"></i></span><span>Saving...</span>';
         
-        fetch('/update_book/{{ book.rowid }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(result => {
+        try {
+            // First, upload cover if a file is selected
+            if (coverFile.files.length > 0) {
+                const coverFormData = new FormData();
+                coverFormData.append('cover', coverFile.files[0]);
+                
+                const coverResponse = await fetch(`/api/book/{{ book.localnumber }}/cover/upload`, {
+                    method: 'POST',
+                    body: coverFormData
+                });
+                
+                const coverData = await coverResponse.json();
+                if (!coverData.success) {
+                    alert('Error uploading cover: ' + coverData.error);
+                    saveBookBtn.disabled = false;
+                    saveBookBtn.innerHTML = 'Save Changes';
+                    return;
+                }
+            }
+            
+            // Then save book info
+            const data = Object.fromEntries(formData.entries());
+            // Remove the cover file from the form data as it's handled separately
+            delete data['edit-cover-file-input'];
+            
+            const response = await fetch('/update_book/{{ book.rowid }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
             if (result.success) {
                 location.reload();
             } else {
@@ -257,12 +289,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 saveBookBtn.disabled = false;
                 saveBookBtn.innerHTML = 'Save Changes';
             }
-        })
-        .catch(error => {
+        } catch (error) {
             alert('Error: ' + error.message);
             saveBookBtn.disabled = false;
             saveBookBtn.innerHTML = 'Save Changes';
-        });
+        }
     });
     
     // Handle return book buttons
