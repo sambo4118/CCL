@@ -1076,7 +1076,6 @@ def upload_books():
         
         print(f'[upload_books] Matched columns: {list(col_rename_map.keys())}')
         
-        # Select only the columns we found and rename them
         df_selected = df[list(col_rename_map.keys())].copy()
         df_selected.rename(columns=col_rename_map, inplace=True)
 
@@ -1084,15 +1083,16 @@ def upload_books():
         conn = sqlite3.connect(str(db_path))
         cur = conn.cursor()
         
-        # Get existing localnumbers to avoid duplicates
         cur.execute('SELECT localnumber FROM books')
-        existing_localnumbers = {row[0] for row in cur.fetchall()}
+        existing_localnumbers = {str(row[0]).strip() if row[0] is not None else '' for row in cur.fetchall()}
         
-        # Filter out books that already exist
+        df_selected['localnumber'] = df_selected['localnumber'].astype(str).str.strip()
+        
         books_to_add = df_selected[~df_selected['localnumber'].isin(existing_localnumbers)]
         duplicates_skipped = len(df_selected) - len(books_to_add)
         
-        # Insert only new books
+        print(f'[upload_books] Total in file: {len(df_selected)}, New books: {len(books_to_add)}, Duplicates: {duplicates_skipped}')
+        
         if len(books_to_add) > 0:
             books_to_add.to_sql('books', conn, index=False, if_exists='append')
         
