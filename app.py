@@ -1082,12 +1082,30 @@ def upload_books():
 
         db_path = pathlib.Path(__file__).parent / 'library.db'
         conn = sqlite3.connect(str(db_path))
-        df_selected.to_sql('books', conn, index=False, if_exists='append')
+        cur = conn.cursor()
+        
+        # Get existing localnumbers to avoid duplicates
+        cur.execute('SELECT localnumber FROM books')
+        existing_localnumbers = {row[0] for row in cur.fetchall()}
+        
+        # Filter out books that already exist
+        books_to_add = df_selected[~df_selected['localnumber'].isin(existing_localnumbers)]
+        duplicates_skipped = len(df_selected) - len(books_to_add)
+        
+        # Insert only new books
+        if len(books_to_add) > 0:
+            books_to_add.to_sql('books', conn, index=False, if_exists='append')
+        
         conn.close()
-        print('[upload_books] Database write complete.')
+        print(f'[upload_books] Database write complete. Added {len(books_to_add)} books, skipped {duplicates_skipped} duplicates.')
         import os
         os.unlink(temp_path)
-        return jsonify({'success': True, 'message': 'Book list imported successfully'})
+        
+        message = f'Successfully imported {len(books_to_add)} new book(s)'
+        if duplicates_skipped > 0:
+            message += f'. Skipped {duplicates_skipped} duplicate(s).'
+        
+        return jsonify({'success': True, 'message': message})
     except Exception as e:
         import traceback
         print('[upload_books] Exception occurred:')
