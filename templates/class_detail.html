@@ -85,9 +85,13 @@
             <form id="checkout-form">
                 <div class="field">
                     <label class="label">Book Local Number</label>
-                    <div class="control">
+                    <div class="control has-icons-right">
                         <input class="input is-primary" type="text" id="book-local-id" placeholder="Enter local number..." autocomplete="off">
+                        <span class="icon is-right" style="cursor: pointer; pointer-events: all;" id="barcode-scan-btn" title="Open camera to scan barcode">
+                            <i class="fas fa-camera"></i>
+                        </span>
                     </div>
+                    <input type="file" id="barcode-camera-input" accept="image/*" capture="environment" style="display: none;">
                 </div>
                 <div class="field" id="book-details" style="display:none;">
                     <label class="label">Book Details</label>
@@ -177,6 +181,75 @@ document.addEventListener('DOMContentLoaded', function() {
             studentDropdown.classList.remove('is-active');
         });
     });
+
+    // Handle barcode camera scanning
+    const barcodeScanBtn = document.getElementById('barcode-scan-btn');
+    const barcodeCameraInput = document.getElementById('barcode-camera-input');
+    
+    barcodeScanBtn.addEventListener('click', function() {
+        barcodeCameraInput.click();
+    });
+
+    barcodeCameraInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    // Use HTML5 Canvas to get image data and extract barcode
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // Try to detect barcode using simple image processing
+                    detectBarcode(canvas);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    function detectBarcode(canvas) {
+        // Load QuaggaJS for barcode detection if available
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js';
+        script.onload = function() {
+            Quagga.decodeSingle({
+                src: canvas.toDataURL(),
+                numOfWorkers: 0,
+                inputStream: {
+                    size: 800,
+                },
+                decoder: {
+                    readers: ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader', 'code_39_ean_reader', 'codabar_reader', 'upc_reader', 'upc_e_reader'],
+                    debug: {
+                        showCanvas: false,
+                        showPatterns: false,
+                        showFoundPatterns: false,
+                        showLines: false,
+                        showTiming: false,
+                        showErrors: false
+                    }
+                }
+            }, function(result) {
+                if (result.codeResult) {
+                    // Barcode detected successfully
+                    bookLocalId.value = result.codeResult.code;
+                    bookLocalId.dispatchEvent(new Event('input'));
+                } else {
+                    alert('No barcode detected in the image. Please try again or enter the book local number manually.');
+                }
+            });
+        };
+        script.onerror = function() {
+            alert('Unable to load barcode scanner. Please enter the book local number manually.');
+        };
+        document.head.appendChild(script);
+    }
 
     // Open modal when checkout button is clicked
     checkoutBtns.forEach(btn => {
