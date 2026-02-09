@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block body %}
 
-<section class="hero is-primary is-medium" style="border-radius: 0.75rem; overflow: hidden; margin: 1rem;">
+<section class="hero is-primary is-medium" style="border-radius: 0.75rem; overflow: hidden; margin: 1rem 0;">
     <div class="hero-body">
-        <div class="container has-text-centered">
+        <div class="has-text-centered" style="padding: 0 1rem;">
             <h1 class="title is-1 is-size-3-mobile">
                 Welcome to CCA Library
             </h1>
@@ -15,7 +15,7 @@
 </section>
 
 <section class="section">
-    <div class="container">
+    <div>
         <!-- Statistics Cards -->
         <div class="columns is-multiline is-centered mb-6">
             <div class="column is-6-desktop is-12-tablet">
@@ -68,7 +68,7 @@
                         </span>
                         <div style="display: flex; align-items: baseline; gap: 0.5rem; white-space: nowrap;">
                             <p class="title is-2 mb-0 ml-2">{{ outstanding_count }}</p>
-                            <p class="title is-2 mb-0">Outstanding Checkouts</p>
+                            <p class="title is-2 mb-0">Pending Returns</p>
                         </div>
                     </div>
                 </div>
