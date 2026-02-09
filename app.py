@@ -2023,7 +2023,12 @@ def clear_checkouts():
 
 if __name__ == '__main__':
     # For development only - use gunicorn for production
-    app.run(host='0.0.0.0', port=5000, debug=False) #, ssl_context=('CCL/nginx/ssl/selfsigned.crt', 'CCL/nginx/ssl/selfsigned.key'))
+    # Get the directory where app.py is located
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    cert_file = os.path.join(app_dir, 'nginx', 'ssl', 'selfsigned.crt')
+    key_file = os.path.join(app_dir, 'nginx', 'ssl', 'selfsigned.key')
+    
+    app.run(host='0.0.0.0', port=5000, debug=False, ssl_context=(cert_file, key_file))
 
 # WSGI entry point for production servers
 application = app

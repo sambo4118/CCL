@@ -91,7 +91,7 @@
                             <i class="fas fa-camera"></i>
                         </span>
                     </div>
-                    <input type="file" id="barcode-camera-input" accept="image/*" capture="environment" style="display: none;">
+                    <input type="file" id="barcode-camera-input" accept="image/*" capture style="display: none;">
                 </div>
                 <div class="field" id="book-details" style="display:none;">
                     <label class="label">Book Details</label>
@@ -186,13 +186,55 @@ document.addEventListener('DOMContentLoaded', function() {
     const barcodeScanBtn = document.getElementById('barcode-scan-btn');
     const barcodeCameraInput = document.getElementById('barcode-camera-input');
     
-    barcodeScanBtn.addEventListener('click', function() {
-        barcodeCameraInput.click();
+    // Function to trigger camera
+    function triggerCamera(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        console.log('Camera button triggered');
+        
+        // Try to trigger the file input
+        try {
+            barcodeCameraInput.click();
+            console.log('File input clicked');
+        } catch (error) {
+            console.error('Error clicking file input:', error);
+            alert('Error opening camera: ' + error.message);
+        }
+    }
+    
+    // Handle both click and touch events for maximum mobile compatibility
+    barcodeScanBtn.addEventListener('click', triggerCamera, { passive: false });
+    barcodeScanBtn.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        triggerCamera(e);
+    }, { passive: false });
+    
+    // Also handle clicks on the icon element itself (child of span)
+    const cameraIcon = barcodeScanBtn.querySelector('i');
+    if (cameraIcon) {
+        cameraIcon.addEventListener('click', triggerCamera, { passive: false });
+        cameraIcon.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            triggerCamera(e);
+        }, { passive: false });
+    }
+
+    // Add click event to file input for debugging
+    barcodeCameraInput.addEventListener('click', function() {
+        console.log('File input received click event');
     });
 
     barcodeCameraInput.addEventListener('change', function(e) {
+        console.log('File input changed, files:', e.target.files.length);
         const file = e.target.files[0];
+        if (!file) {
+            console.log('No file selected');
+            return;
+        }
         if (file) {
+            console.log('Processing file:', file.name, file.type);
             const reader = new FileReader();
             reader.onload = function(event) {
                 const img = new Image();
