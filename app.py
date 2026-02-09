@@ -1040,46 +1040,60 @@ def upload_books():
     file = request.files['file']
     if file.filename == '':
         return jsonify({'success': False, 'error': 'No file selected'})
-    if not file.filename.lower().endswith('.csv'):
-        return jsonify({'success': False, 'error': 'Please select a CSV file'})
+    
+    # Check file extension
+    filename_lower = file.filename.lower()
+    if not (filename_lower.endswith('.csv') or filename_lower.endswith('.xlsx')):
+        return jsonify({'success': False, 'error': 'Please select a CSV or XLSX file'})
 
     # Trigger backup before major data change
     trigger_event_backup('bulk_book_import')
 
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_file:
+        # Determine file suffix for temp file
+        suffix = '.xlsx' if filename_lower.endswith('.xlsx') else '.csv'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             file.save(temp_file.name)
             temp_path = temp_file.name
 
-        print('[upload_books] Reading CSV into DataFrame...')
-        df = pandas.read_csv(temp_path, quotechar='"', doublequote=True)
+        print(f'[upload_books] Reading {suffix.upper()} into DataFrame...')
+        if suffix == '.xlsx':
+            df = pandas.read_excel(temp_path)
+        else:
+            df = pandas.read_csv(temp_path, quotechar='"', doublequote=True)
         print(f'[upload_books] DataFrame shape: {df.shape}')
         print(f'[upload_books] DataFrame columns: {list(df.columns)}')
 
-        expected_cols = [
-            'Local Number', 'Title', 'Sub Title', 'Author(s)', 
-            'Call 1', 'Call 2', 'Publisher', 'Published', 'ISBN #', 'Location'
-        ]
-        present_cols = [col for col in expected_cols if col in df.columns]
-        print(f'[upload_books] Present columns: {present_cols}')
-        df_selected = df[present_cols].copy()
-        col_map = {
-            'Local Number': 'localnumber',
-            'Title': 'title',
-            'Sub Title': 'subtitle',
-            'Author(s)': 'author',
-            'Call 1': 'call1',
-            'Call 2': 'call2',
-            'Publisher': 'publisher',
-            'Published': 'published',
-            'ISBN #': 'isbn',
-            'Location': 'booklocation'
+        # Case-insensitive column mapping
+        expected_cols_map = {
+            'local number': 'localnumber',
+            'title': 'title',
+            'sub title': 'subtitle',
+            'author(s)': 'author',
+            'call 1': 'call1',
+            'call 2': 'call2',
+            'publisher': 'publisher',
+            'published': 'published',
+            'isbn #': 'isbn',
+            'location': 'booklocation'
         }
-        df_selected.rename(columns=col_map, inplace=True)
+        
+        # Create mapping from actual column names (any case) to database column names
+        col_rename_map = {}
+        for col in df.columns:
+            col_lower = col.lower()
+            if col_lower in expected_cols_map:
+                col_rename_map[col] = expected_cols_map[col_lower]
+        
+        print(f'[upload_books] Matched columns: {list(col_rename_map.keys())}')
+        
+        # Select only the columns we found and rename them
+        df_selected = df[list(col_rename_map.keys())].copy()
+        df_selected.rename(columns=col_rename_map, inplace=True)
 
         db_path = pathlib.Path(__file__).parent / 'library.db'
         conn = sqlite3.connect(str(db_path))
-        df_selected.to_sql('books', conn, index=False, if_exists='replace')
+        df_selected.to_sql('books', conn, index=False, if_exists='append')
         conn.close()
         print('[upload_books] Database write complete.')
         import os
