@@ -197,16 +197,13 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="modal-content" style="max-width: 90%; width: 600px;">
             <div class="box">
                 <h3 class="title is-4">Scan Barcode</h3>
-                <video id="barcode-video" autoplay playsinline style="width: 100%; max-width: 600px; border: 2px solid #00d1b2; background: black;"></video>
+                <video id="barcode-video" autoplay playsinline muted style="width: 100%; max-width: 600px; border: 2px solid #00d1b2; background: black;"></video>
                 <p class="help mt-3">Position the barcode in the camera view</p>
                 <button class="button is-danger mt-3" id="close-camera-btn">Close Camera</button>
             </div>
         </div>
     `;
     document.body.appendChild(cameraModal);
-    
-    const videoElement = document.getElementById('barcode-video');
-    const closeCameraBtn = document.getElementById('close-camera-btn');
     
     barcodeScanBtn.addEventListener('click', function(e) {
         e.preventDefault();
@@ -218,30 +215,38 @@ document.addEventListener('DOMContentLoaded', function() {
         
         cameraModal.classList.add('is-active');
         
-        try {
-            codeReader = new ZXing.BrowserMultiFormatReader();
-            
-            // Start continuous decode from default video device (no device ID = use default camera)
-            codeReader.decodeFromVideoDevice(undefined, 'barcode-video', (result, err) => {
-                if (result) {
-                    console.log('Barcode detected:', result.text);
-                    bookLocalId.value = result.text;
-                    bookLocalId.dispatchEvent(new Event('input'));
-                    
-                    // Stop scanning and close modal
-                    stopCamera();
-                    alert('Barcode scanned: ' + result.text);
-                }
-                if (err && !(err instanceof ZXing.NotFoundException)) {
-                    console.error('Scan error:', err);
-                }
+        // Get video element after modal is active
+        const videoElement = document.getElementById('barcode-video');
+        
+        // Request camera access and start video (prefer back camera, fallback to any)
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+            .then(function(stream) {
+                currentStream = stream;
+                videoElement.srcObject = stream;
+                
+                // Start barcode detection
+                codeReader = new ZXing.BrowserMultiFormatReader();
+                
+                codeReader.decodeFromVideoDevice(undefined, 'barcode-video', (result, err) => {
+                    if (result) {
+                        console.log('Barcode detected:', result.text);
+                        bookLocalId.value = result.text;
+                        bookLocalId.dispatchEvent(new Event('input'));
+                        
+                        // Stop scanning and close modal
+                        stopCamera();
+                        alert('Barcode scanned: ' + result.text);
+                    }
+                    if (err && !(err instanceof ZXing.NotFoundException)) {
+                        console.error('Scan error:', err);
+                    }
+                });
+            })
+            .catch(function(error) {
+                console.error('Camera error:', error);
+                alert('Could not start camera. Please allow camera access: ' + error.message);
+                cameraModal.classList.remove('is-active');
             });
-            
-        } catch (error) {
-            console.error('Camera error:', error);
-            alert('Could not start camera: ' + error.message);
-            cameraModal.classList.remove('is-active');
-        }
     });
     
     function stopCamera() {
@@ -249,9 +254,18 @@ document.addEventListener('DOMContentLoaded', function() {
             codeReader.reset();
             codeReader = null;
         }
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+            currentStream = null;
+        }
+        const videoElement = document.getElementById('barcode-video');
+        if (videoElement) {
+            videoElement.srcObject = null;
+        }
         cameraModal.classList.remove('is-active');
     }
     
+    const closeCameraBtn = document.getElementById('close-camera-btn');
     closeCameraBtn.addEventListener('click', stopCamera);
     cameraModal.querySelector('.modal-background').addEventListener('click', stopCamera);
 
