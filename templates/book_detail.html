@@ -66,7 +66,7 @@
             {% for c in checkouts %}
                 <tr>
                     <td colspan="3" style="padding:0; border:none; background:none;">
-                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
+                        <div class="is-rounded checkout-row" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
                             <div style="{% if not c['return_date'] %}flex:1.7{% else %}flex:2{% endif %}; background: linear-gradient(90deg, #14161a 0%, {{ c['checkout_date'] | checkout_status(c['return_date']) }} 100%); padding:0.5rem 1rem; {% if not c['return_date'] %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem;{% else %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; border-top-right-radius:0.75rem; border-bottom-right-radius:0.75rem;{% endif %} display: flex; justify-content: space-between; align-items: center;">
                                 <div style="text-align: left;">
                                     <a href="/student/{{ c['student_fax_id'] }}" class="has-text-white has-text-weight-semibold">{{ c['student_name'] }}</a>

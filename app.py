@@ -1363,6 +1363,9 @@ def upload_backup():
 # SEARCH FUNCTIONALITY
 # ============================================================================
 
+
+
+
 @app.route('/search')
 def search():
     """Full-text search across books and students with HTML results"""
@@ -1486,7 +1489,7 @@ def book_detail(localnumber):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
+    cur.execute("SELECT id, * FROM books WHERE localnumber = ?", (localnumber,))
     book = cur.fetchone()
     checkouts = []
     if book:
@@ -1497,7 +1500,7 @@ def book_detail(localnumber):
             WHERE c.book_id = ?
             ORDER BY c.checkout_date DESC, c.id DESC
             LIMIT 20
-        ''', (book['rowid'],))
+        ''', (book['id'],))
         checkouts = cur.fetchall()
     conn.close()
     if not book:
