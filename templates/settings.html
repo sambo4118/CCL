@@ -521,7 +521,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const typeColors = {
                 'daily': 'is-info',
-                'frequent': 'is-success', 
+                'frequent': 'is-primary', 
                 'events': 'is-warning',
                 'manual': 'is-primary'
             };
@@ -541,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${backup.compression_ratio ? `<p class="has-text-grey is-size-7">Compression: ${Math.round((1 - backup.compression_ratio) * 100)}%</p>` : ''}
                         </div>
                         <div class="backup-selected-indicator" style="display: none;">
-                            <span class="icon has-text-success">
+                            <span class="icon has-text-primary">
                                 <i class="fas fa-check-circle fa-lg"></i>
                             </span>
                         </div>
@@ -679,7 +679,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.success) {
                         // Show success notification
                         const notification = document.createElement('div');
-                        notification.className = 'notification is-success';
+                        notification.className = 'notification is-primary';
                         notification.innerHTML = `
                             <button class="delete"></button>
                             <strong>Success!</strong> ${data.message}

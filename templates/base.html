@@ -482,6 +482,14 @@
                     <span>Search</span>
                 </a>
                 
+                <!-- Inventory Check -->
+                <a href="{{ url_for('inventory_check') }}" class="navbar-item">
+                    <span class="icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </span>
+                    <span>Inventory</span>
+                </a>
+                
                 <!-- Classes Dropdown -->
                 <div class="navbar-item has-dropdown" id="classes-dropdown">
                     <a class="navbar-link" id="classes-dropdown-link">
@@ -533,7 +541,7 @@
             {% if messages %}
                 <div style="padding: 1rem 0;">
                     {% for category, message in messages %}
-                        <div class="notification is-{{ 'success' if category == 'success' else 'danger' if category == 'error' else 'info' if category == 'info' else 'warning' }}">
+                        <div class="notification is-{{ 'primary' if category == 'success' else 'danger' if category == 'error' else 'info' if category == 'info' else 'warning' }}">
                             <button class="delete"></button>
                             {{ message }}
                         </div>
@@ -753,7 +761,7 @@
                 }
 
                 // Auto-hide success and info messages after 5 seconds
-                if (notification.classList.contains('is-success') || notification.classList.contains('is-info')) {
+                if (notification.classList.contains('is-primary') || notification.classList.contains('is-info')) {
                     setTimeout(() => {
                         notification.remove();
                     }, 5000);

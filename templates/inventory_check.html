@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="container">
+    <h1 class="title">Library Inventory Check</h1>
+    
+    <!-- Input Section -->
+    <div class="box">
+        <h2 class="subtitle">Scan Books</h2>
+        
+        <div class="field has-addons">
+            <div class="control is-expanded">
+                <input class="input is-primary" type="text" id="bookNumberInput" placeholder="Enter or scan book number" autofocus>
+            </div>
+            <div class="control">
+                <button class="button is-primary" id="addBookBtn">
+                    <span class="icon">
+                        <i class="fas fa-plus"></i>
+                    </span>
+                    <span>Add</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="buttons mt-4">
+            <button class="button is-primary is-medium" id="checkInventoryBtn">
+                <span class="icon">
+                    <i class="fas fa-check-circle"></i>
+                </span>
+                <span>Check Inventory</span>
+            </button>
+            <button class="button is-warning" id="clearAllBtn">
+                <span class="icon">
+                    <i class="fas fa-trash"></i>
+                </span>
+                <span>Clear All</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Scanned Books Display -->
+    <div class="box">
+        <h2 class="subtitle">
+            Scanned Books (<span id="scannedCount">0</span>)
+        </h2>
+        <div id="scannedBooksList" class="content" style="max-height: 300px; overflow-y: auto;">
+            <p class="has-text-grey-light">No books scanned yet</p>
+        </div>
+    </div>
+    
+    <!-- Results Section -->
+    <div id="resultsSection" style="display: none;">
+        <!-- Missing Books List -->
+        <div id="missingBooksSection" style="display: none;">
+            <div class="box">
+                <div class="level">
+                    <div class="level-left">
+                        <div class="level-item">
+                            <h2 class="subtitle has-text-danger">Missing Books (<span id="totalMissing">0</span>)</h2>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        <div class="level-item">
+                            <button class="button is-primary" id="exportCsvBtn">
+                                <span class="icon">
+                                    <i class="fas fa-file-csv"></i>
+                                </span>
+                                <span>Export to CSV</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="table is-fullwidth is-striped is-hoverable">
+                        <thead>
+                            <tr>
+                                <th>Local Number</th>
+                                <th>Title</th>
+                                <th>Subtitle</th>
+                                <th>Author</th>
+                            </tr>
+                        </thead>
+                        <tbody id="missingBooksTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- No Missing Books Message -->
+        <div id="noMissingBooksSection" style="display: none;">
+            <div class="notification is-primary is-light">
+                <p class="title is-4">
+                    <span class="icon">
+                        <i class="fas fa-check-circle"></i>
+                    </span>
+                    All books accounted for!
+                </p>
+                <p>No missing books found. Your library inventory is complete.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Store scanned book numbers
+    let scannedBooks = new Set();
+    let missingBooksData = [];
+    
+    // DOM elements
+    const bookNumberInput = document.getElementById('bookNumberInput');
+    const addBookBtn = document.getElementById('addBookBtn');
+    const checkInventoryBtn = document.getElementById('checkInventoryBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const scannedBooksList = document.getElementById('scannedBooksList');
+    const scannedCount = document.getElementById('scannedCount');
+    const resultsSection = document.getElementById('resultsSection');
+    
+    // Add single book number directly
+    async function addBookNumber(number) {
+        const trimmed = number.trim();
+        if (!trimmed) return;
+        
+        // Check if already scanned
+        if (scannedBooks.has(trimmed)) {
+            showNotification('Book ' + trimmed + ' already scanned', 'warning');
+            bookNumberInput.value = '';
+            bookNumberInput.focus();
+            return;
+        }
+        
+        try {
+            addBookBtn.classList.add('is-loading');
+            
+            const response = await fetch('/search_books?q=' + encodeURIComponent(trimmed));
+            const data = await response.json();
+            
+            if (data.books && data.books.length > 0) {
+                // Find exact match by localnumber
+                const book = data.books.find(b => b.localnumber === trimmed) || data.books[0];
+                
+                // Add directly to scanned books
+                scannedBooks.add(trimmed);
+                updateScannedDisplay();
+                
+                bookNumberInput.value = '';
+                bookNumberInput.focus();
+            } else {
+                // Book not found in database - don't add it
+                showNotification('Book number "' + trimmed + '" not found in database', 'danger');
+                bookNumberInput.value = '';
+                bookNumberInput.focus();
+            }
+        } catch (error) {
+            showNotification('Error looking up book: ' + error.message, 'danger');
+        } finally {
+            addBookBtn.classList.remove('is-loading');
+        }
+    }
+    
+    // Update scanned books display
+    function updateScannedDisplay() {
+        scannedCount.textContent = scannedBooks.size;
+        
+        if (scannedBooks.size === 0) {
+            scannedBooksList.innerHTML = '<p class="has-text-gray-light">No books scanned yet</p>';
+        } else {
+            const sortedBooks = Array.from(scannedBooks).sort();
+            scannedBooksList.innerHTML = '<div class="tags">' + 
+                sortedBooks.map(num => `
+                    <span class="tag has-background-primary is-medium has-text-white">
+                        ${num}
+                        <button class="delete is-small" onclick="removeBook('${num}')"></button>
+                    </span>
+                `).join('') + '</div>';
+        }
+    }
+    
+    // Remove book from scanned list
+    window.removeBook = function(number) {
+        scannedBooks.delete(number);
+        updateScannedDisplay();
+    };
+    
+    // Add book button click
+    addBookBtn.addEventListener('click', () => {
+        addBookNumber(bookNumberInput.value);
+    });
+    
+    // Enter key in input field
+    bookNumberInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addBookNumber(bookNumberInput.value);
+        }
+    });
+    
+    // Clear all button
+    clearAllBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all scanned books?')) {
+            scannedBooks.clear();
+            updateScannedDisplay();
+            resultsSection.style.display = 'none';
+        }
+    });
+    
+    // Check inventory button
+    checkInventoryBtn.addEventListener('click', async () => {
+        if (scannedBooks.size === 0) {
+            showNotification('Please scan some books first', 'warning');
+            return;
+        }
+        
+        try {
+            checkInventoryBtn.classList.add('is-loading');
+            
+            const response = await fetch('/api/compare_inventory', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    scanned_numbers: Array.from(scannedBooks)
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                displayResults(data);
+            } else {
+                showNotification('Error: ' + data.error, 'danger');
+            }
+        } catch (error) {
+            showNotification('Error checking inventory: ' + error.message, 'danger');
+        } finally {
+            checkInventoryBtn.classList.remove('is-loading');
+        }
+    });
+    
+    // Display results
+    function displayResults(data) {
+        try {
+            resultsSection.style.display = 'block';
+            
+            // Update missing books count
+            const totalMissingEl = document.getElementById('totalMissing');
+            if (totalMissingEl) totalMissingEl.textContent = data.total_missing;
+        
+        // Show missing books or success message
+        if (data.total_missing > 0) {
+            document.getElementById('missingBooksSection').style.display = 'block';
+            document.getElementById('noMissingBooksSection').style.display = 'none';
+            
+            missingBooksData = data.missing_books;
+            
+            // Populate table
+            const tbody = document.getElementById('missingBooksTableBody');
+            tbody.innerHTML = data.missing_books.map(book => `
+                <tr>
+                    <td><strong>${book.localnumber}</strong></td>
+                    <td>${book.title}</td>
+                    <td>${book.subtitle || '-'}</td>
+                    <td>${book.author}</td>
+                </tr>
+            `).join('');
+            
+            // Attach export CSV event listener
+            attachExportListener();
+        } else {
+            document.getElementById('missingBooksSection').style.display = 'none';
+            document.getElementById('noMissingBooksSection').style.display = 'block';
+        }
+        
+        // Scroll to results
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+        } catch (error) {
+            showNotification('Error displaying results: ' + error.message, 'danger');
+        }
+    }
+    
+    // Export CSV button event listener
+    function attachExportListener() {
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+        if (!exportCsvBtn || exportCsvBtn.dataset.listenerAttached) return;
+        
+        exportCsvBtn.dataset.listenerAttached = 'true';
+        exportCsvBtn.addEventListener('click', async () => {
+        if (missingBooksData.length === 0) {
+            showNotification('No missing books to export', 'warning');
+            return;
+        }
+        
+        try {
+            exportCsvBtn.classList.add('is-loading');
+            
+            const response = await fetch('/api/export_missing_books', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    missing_books: missingBooksData
+                })
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `missing_books_${new Date().toISOString().slice(0,10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showNotification('CSV file downloaded successfully', 'primary');
+            } else {
+                showNotification('Error exporting CSV', 'danger');
+            }
+        } catch (error) {
+            showNotification('Error: ' + error.message, 'danger');
+        } finally {
+            exportCsvBtn.classList.remove('is-loading');
+        }
+        });
+    }
+    
+    // Show notification
+    function showNotification(message, type) {
+        // Remove any existing notifications first
+        const existingNotifications = document.querySelectorAll('.container > .notification');
+        existingNotifications.forEach(n => n.remove());
+        
+        const notification = document.createElement('div');
+        notification.className = `notification is-${type}`;
+        notification.style.marginTop = '1rem';
+        notification.innerHTML = `
+            <button class="delete"></button>
+            ${message}
+        `;
+        
+        const container = document.querySelector('.container');
+        container.insertBefore(notification, container.firstChild);
+        
+        notification.querySelector('.delete').addEventListener('click', () => {
+            notification.remove();
+        });
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+</script>
+
+{% endblock %}

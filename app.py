@@ -815,6 +815,107 @@ def settings():
     
     return render_template('settings.html', classes=[dict(row) for row in classes])
 
+# Inventory Check page
+@app.route("/inventory_check")
+def inventory_check():
+    """Render the inventory check page"""
+    return render_template('inventory_check.html')
+
+# API endpoint to get all book local numbers from database
+@app.route('/api/get_all_book_numbers')
+def get_all_book_numbers():
+    """Return all book local numbers in the database"""
+    try:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        
+        cur.execute('SELECT localnumber, title, author FROM books ORDER BY localnumber')
+        books = cur.fetchall()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'books': [dict(book) for book in books]
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# API endpoint to compare scanned books with database
+@app.route('/api/compare_inventory', methods=['POST'])
+def compare_inventory():
+    """Compare scanned book numbers with database and return missing books"""
+    try:
+        data = request.get_json()
+        scanned_numbers = set(data.get('scanned_numbers', []))
+        
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        
+        # Get all books from database
+        cur.execute('SELECT localnumber, title, subtitle, author, isbn, publisher, booklocation FROM books ORDER BY localnumber')
+        all_books = cur.fetchall()
+        conn.close()
+        
+        # Find missing books (in database but not scanned)
+        missing_books = []
+        db_numbers = set()
+        
+        for book in all_books:
+            db_numbers.add(book['localnumber'])
+            if book['localnumber'] not in scanned_numbers:
+                missing_books.append(dict(book))
+        
+        # Find extra books (scanned but not in database)
+        extra_numbers = scanned_numbers - db_numbers
+        
+        return jsonify({
+            'success': True,
+            'missing_books': missing_books,
+            'extra_numbers': list(extra_numbers),
+            'total_db_books': len(all_books),
+            'total_scanned': len(scanned_numbers),
+            'total_missing': len(missing_books)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+# API endpoint to export missing books as CSV
+@app.route('/api/export_missing_books', methods=['POST'])
+def export_missing_books():
+    """Export missing books to CSV file"""
+    try:
+        data = request.get_json()
+        missing_books = data.get('missing_books', [])
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        output.write('Local Number,Title,Subtitle,Author\n')
+        
+        for book in missing_books:
+            # Escape fields that might contain commas
+            localnumber = str(book.get('localnumber', '')).replace('"', '""')
+            title = str(book.get('title', '')).replace('"', '""')
+            subtitle = str(book.get('subtitle', '') or '').replace('"', '""')
+            author = str(book.get('author', '')).replace('"', '""')
+            
+            output.write(f'"{localnumber}","{title}","{subtitle}","{author}"\n')
+        
+        # Prepare response
+        output.seek(0)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'missing_books_{timestamp}.csv'
+        
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 # ============================================================================
 # AUTHENTICATION SYSTEM
 # ============================================================================
