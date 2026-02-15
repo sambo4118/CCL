@@ -5,8 +5,8 @@
 {% endblock %}
 
 {% block body %}
-<div style="display: flex; min-height: 220px; border-radius: 1rem; overflow: hidden; align-items: stretch;">
-    <div class="has-background-primary is-flex" style="color: white; min-width: 250px; flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
+<div class="detail-header-wrapper" style="display: flex; min-height: 220px; border-radius: 1rem; overflow: hidden; align-items: stretch;">
+    <div class="detail-header-primary has-background-primary is-flex" style="color: white; min-width: 250px; flex: 5; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
         <div style="width:100%; text-align:left; padding-left:2rem;">
             <div class="block">
             <h1 class="title is-2 has-text-weight-semibold">{{ class_info.name }}</h1>
@@ -18,7 +18,7 @@
             {% endif %}
         </div>
     </div>
-    <div class="section p-0" style="flex: 7;">
+    <div class="detail-header-info section p-0" style="flex: 7;">
         <div style="width:100%; height:100%; background: linear-gradient(270deg, #14161a 0%, #6a9a75 100%); display: flex; align-items: center; justify-content: flex-end;">
             <ul style="color: white; min-width: 180px; margin: 2rem;">
                 <li><strong>Students:</strong> {{ students|length }}</li>
@@ -32,10 +32,8 @@
         </div>
     </div>
 </div>
-<div class="columns is-gapless" style="margin-bottom: 0.5rem;">
-    <div class="column section" style="height:10px; padding:0;"></div>
-</div>
-<div class="columns is-gapless" style="margin-top: 0;">
+
+<div class="columns is-gapless" style="margin-top: 0.5rem;">
     <div class="column is-10 section py-3 px-5 ml-3" style="color: white; min-width: 250px;">
         {% if students %}
         <table class="table is-fullwidth section has-text-white is-rounded" style="border-radius: 1rem; overflow: hidden;">

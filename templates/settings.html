@@ -9,12 +9,11 @@
     <div class="columns is-multiline is-vcentered is-mobile m-1">
         <div class="column">
             <div class="box has-background-primary is-flex is-align-items-center is-justify-content-space-between mb-3">
-                <h1 class="title has-text-white mb-0">Settings</h1>
+                <h1 class="title has-text-white m-1 ml-2">Settings</h1>
                 <div class="icon has-text-white is-flex is-align-items-center">
-                    <i class="fas fa-cog"></i>
+                    <i class="fas fa-cog mr-2"></i>
                 </div>
             </div>
-            <h2 class="subtitle has-text-white">Manage your library data</h2>
         </div>
     </div>
     
@@ -176,6 +175,27 @@
     </div>
 </div>
 
+
+<!-- Import Stats Modal -->
+<div class="modal" id="import-stats-modal">
+    <div class="modal-background" id="import-stats-modal-bg"></div>
+    <div class="modal-card" style="width: 700px; max-width: 95vw;">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Import Results</p>
+            <button class="delete" aria-label="close" id="close-import-stats-modal-btn"></button>
+        </header>
+        <section class="modal-card-body">
+            <div class="content">
+                <p id="import-stats-message" class="has-text-weight-semibold"></p>
+                <div id="import-stats-summary"></div>
+                <div id="import-stats-details" style="margin-top: 1rem;"></div>
+            </div>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button" id="close-import-stats-modal-btn-footer">Close</button>
+        </footer>
+    </div>
+</div>
 
 
 <!-- Manage Classes Modal -->
@@ -396,6 +416,122 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Manage classes modal not found!');
         return;
     }
+
+    const importStatsModal = document.getElementById('import-stats-modal');
+    const importStatsMessage = document.getElementById('import-stats-message');
+    const importStatsSummary = document.getElementById('import-stats-summary');
+    const importStatsDetails = document.getElementById('import-stats-details');
+
+    function openImportStatsModal() {
+        if (importStatsModal) {
+            importStatsModal.classList.add('is-active');
+        }
+    }
+
+    function closeImportStatsModal() {
+        if (importStatsModal) {
+            importStatsModal.classList.remove('is-active');
+        }
+    }
+
+    function buildList(items) {
+        const list = document.createElement('ul');
+        items.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            list.appendChild(li);
+        });
+        return list;
+    }
+
+    function renderImportStats(data) {
+        if (!importStatsMessage || !importStatsSummary || !importStatsDetails) {
+            return;
+        }
+
+        importStatsSummary.innerHTML = '';
+        importStatsDetails.innerHTML = '';
+
+        if (!data || !data.success) {
+            importStatsMessage.textContent = (data && data.error) ? data.error : 'Import failed.';
+            openImportStatsModal();
+            return;
+        }
+
+        importStatsMessage.textContent = data.message || 'Import completed.';
+
+        // Handle book import stats (has stats object)
+        if (data.stats) {
+            const stats = data.stats;
+            const summaryItems = [
+                `Total rows: ${stats.total_rows ?? 0}`,
+                `Imported: ${stats.imported ?? 0}`,
+                `Skipped missing required: ${stats.skipped_missing_required ?? 0}`,
+                `Skipped duplicate localnumbers in file: ${stats.skipped_duplicate_localnumbers ?? 0}`,
+                `Skipped duplicates already in database: ${stats.skipped_existing_duplicates ?? 0}`
+            ];
+            importStatsSummary.appendChild(buildList(summaryItems));
+
+            const details = data.details || {};
+            const detailLimit = details.detail_limit || 0;
+            const detailSections = [];
+
+            if (details.missing_required_rows && details.missing_required_rows.length) {
+                detailSections.push({
+                    title: 'Rows missing required fields (line numbers)',
+                    items: details.missing_required_rows.map(String)
+                });
+            }
+
+            if (details.duplicate_localnumbers_in_file && details.duplicate_localnumbers_in_file.length) {
+                detailSections.push({
+                    title: 'Duplicate localnumbers in file',
+                    items: details.duplicate_localnumbers_in_file.map(String)
+                });
+            }
+
+            if (details.duplicate_localnumbers_existing && details.duplicate_localnumbers_existing.length) {
+                detailSections.push({
+                    title: 'Localnumbers already in database',
+                    items: details.duplicate_localnumbers_existing.map(String)
+                });
+            }
+
+            detailSections.forEach(section => {
+                const header = document.createElement('p');
+                header.className = 'has-text-weight-semibold';
+                header.textContent = section.title + (detailLimit ? ` (showing up to ${detailLimit})` : '');
+                importStatsDetails.appendChild(header);
+                importStatsDetails.appendChild(buildList(section.items));
+            });
+        }
+
+        // Handle warnings (used by student imports)
+        if (data.warnings && data.warnings.length) {
+            const header = document.createElement('p');
+            header.className = 'has-text-weight-semibold has-text-warning';
+            header.textContent = 'Warnings:';
+            importStatsDetails.appendChild(header);
+            importStatsDetails.appendChild(buildList(data.warnings));
+        }
+
+        openImportStatsModal();
+    }
+
+    const closeImportStatsModalBtn = document.getElementById('close-import-stats-modal-btn');
+    if (closeImportStatsModalBtn) {
+        closeImportStatsModalBtn.addEventListener('click', closeImportStatsModal);
+    }
+
+    const closeImportStatsModalBtnFooter = document.getElementById('close-import-stats-modal-btn-footer');
+    if (closeImportStatsModalBtnFooter) {
+        closeImportStatsModalBtnFooter.addEventListener('click', closeImportStatsModal);
+    }
+
+    const importStatsModalBg = document.getElementById('import-stats-modal-bg');
+    if (importStatsModalBg) {
+        importStatsModalBg.addEventListener('click', closeImportStatsModal);
+    }
     // Import books functionality
     document.getElementById('import-books-btn').addEventListener('click', function() {
         document.getElementById('books-file-input').click();
@@ -413,10 +549,11 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
-                // Import completed, could optionally show success in UI
+                renderImportStats(data);
             })
             .catch(error => {
                 console.error('Import error:', error);
+                renderImportStats({ success: false, error: 'Import failed. Please try again.' });
             });
         }
     });
@@ -448,10 +585,12 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
-                // Import completed, could optionally show success in UI
+                // Show result in modal
+                renderImportStats(data);
             })
             .catch(error => {
                 console.error('Import error:', error);
+                renderImportStats({ success: false, error: 'Student import failed. Please try again.' });
             });
         }
     });

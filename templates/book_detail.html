@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body %}
-<div style="display: flex; min-height: 220px; border-radius: 1rem; overflow: hidden; align-items: stretch; flex-wrap: wrap;">
-    <div class="has-background-primary is-flex" style="color: white; min-width: 250px; flex: 5; display: flex; flex-direction: row; justify-content: flex-start; align-items: stretch; position: relative;">
+<div class="detail-header-wrapper" style="display: flex; min-height: 220px; border-radius: 1rem; overflow: hidden; align-items: stretch; flex-wrap: wrap;">
+    <div class="detail-header-primary has-background-primary is-flex" style="color: white; min-width: 250px; flex: 5; display: flex; flex-direction: row; justify-content: flex-start; align-items: stretch; position: relative;">
         <button id="edit-book-btn" class="button is-ghost has-text-white" style="position: absolute; top: 0.5rem; left: 0.5rem; padding: 0.5rem; z-index: 10;" title="Edit book information">
             <span class="icon">
                 <i class="fas fa-cog"></i>
@@ -31,7 +31,7 @@
             </div>
         </div>
     </div>
-    <div class="section p-0" style="flex: 7;">
+    <div class="detail-header-info section p-0" style="flex: 7;">
         <div style="width:100%; height:100%; background: linear-gradient(270deg, #14161a 0%, #6a9a75 100%); display: flex; align-items: center; justify-content: flex-end;">
             <ul style="color: white; min-width: 180px; margin: 2rem;">
                 <li><strong>Localnumber:</strong> {{ book.localnumber }}</li>
@@ -57,10 +57,8 @@
         </div>
     </div>
 </div>
-<div class="columns is-gapless" style="margin-bottom: 0.5rem;">
-	<div class="column section" style="height:10px; padding:0;"></div>
-</div>
-<div class="columns is-gapless" style="margin-top: 0;">
+
+<div class="columns is-gapless" style="margin-top: 0.5rem;">
     <div class="column is-10 section py-3 px-5 ml-3" style="color: white; min-width: 250px;">
         {% if checkouts %}
         <table class="table is-fullwidth section has-text-white is-rounded" style="border-radius: 1rem; overflow: hidden;">
@@ -68,7 +66,7 @@
             {% for c in checkouts %}
                 <tr>
                     <td colspan="3" style="padding:0; border:none; background:none;">
-                        <div class="is-rounded" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
+                        <div class="is-rounded checkout-row" style="border-radius:0.75rem; overflow:hidden; margin-bottom:0.5rem; display:flex;">
                             <div style="{% if not c['return_date'] %}flex:1.7{% else %}flex:2{% endif %}; background: linear-gradient(90deg, #14161a 0%, {{ c['checkout_date'] | checkout_status(c['return_date']) }} 100%); padding:0.5rem 1rem; {% if not c['return_date'] %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem;{% else %}border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; border-top-right-radius:0.75rem; border-bottom-right-radius:0.75rem;{% endif %} display: flex; justify-content: space-between; align-items: center;">
                                 <div style="text-align: left;">
                                     <a href="/student/{{ c['student_fax_id'] }}" class="has-text-white has-text-weight-semibold">{{ c['student_name'] }}</a>

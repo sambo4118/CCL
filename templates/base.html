@@ -116,6 +116,52 @@
             .modal-card-body {
                 padding: 1rem !important;
             }
+            
+            /* Detail page headers - stack on mobile */
+            .detail-header-wrapper {
+                flex-direction: column !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            .detail-header-primary {
+                min-height: 120px !important;
+                border-radius: 1rem 1rem 0 0 !important;
+            }
+            
+            .detail-header-info {
+                min-height: 100px !important;
+            }
+            
+            .detail-header-info > div {
+                justify-content: center !important;
+                border-radius: 0 0 1rem 1rem !important;
+            }
+            
+            .detail-header-info ul {
+                margin: 1rem !important;
+            }
+            
+            /* Checkout row - stack return button on mobile */
+            .checkout-row {
+                flex-direction: column !important;
+                height: auto !important;
+            }
+            
+            .checkout-row > div:first-child {
+                border-radius: 0.75rem 0.75rem 0 0 !important;
+                min-height: 100px !important;
+            }
+            
+            .checkout-row form {
+                flex: none !important;
+                width: 100% !important;
+            }
+            
+            .checkout-row .return-book-btn {
+                border-radius: 0 0 0.75rem 0.75rem !important;
+                width: 100% !important;
+                min-height: 44px !important;
+            }
         }
         
         /* Fix hamburger menu positioning and animation */
@@ -354,12 +400,12 @@
             /* Settings page mobile layout */
             .settings-grid {
                 grid-template-columns: 1fr !important;
-                gap: 1rem !important;
+                gap: 0.2rem !important;
             }
             
             .settings-item {
                 width: 100% !important;
-                margin-bottom: 1rem !important;
+                margin-bottom: 0.2rem !important;
             }
             
             /* Search mobile optimizations */
