@@ -13,6 +13,8 @@ services:
       - FLASK_DEBUG=1
     working_dir: /app
     restart: unless-stopped
+    networks:
+      - app-network
 
   nginx:
     image: nginx:latest
@@ -25,3 +27,10 @@ services:
       - ./nginx/ssl:/etc/letsencrypt
     depends_on:
       - ccalibrary
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
