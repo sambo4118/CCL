@@ -494,20 +494,38 @@ def add_checkout():
     print('DEBUG: /add_checkout endpoint called')
     data = request.get_json()
     print('DEBUG: Checkout data received:', data)
-    required_fields = ['student_id', 'book_title', 'checkout_date']
+    required_fields = ['student_id', 'checkout_date']
     for field in required_fields:
         if not data.get(field):
             return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
+
+    if not data.get('book_id') and not data.get('book_title'):
+        return jsonify({'success': False, 'error': 'Missing required field: book_id'}), 400
     
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
     try:
-        # Get book rowid by title
-        cur.execute("SELECT rowid FROM books WHERE title = ?", (data.get('book_title'),))
+        # Prefer unique rowid from the client to avoid collisions on duplicate titles.
+        book_id = data.get('book_id')
+        if book_id:
+            cur.execute("SELECT rowid FROM books WHERE rowid = ?", (book_id,))
+        else:
+            # Backward-compatible fallback for older clients.
+            cur.execute("SELECT rowid FROM books WHERE title = ?", (data.get('book_title'),))
+
         book = cur.fetchone()
         if not book:
             conn.close()
             return jsonify({'success': False, 'error': 'Book not found'}), 404
+
+        cur.execute(
+            "SELECT id FROM checkouts WHERE book_id = ? AND return_date IS NULL LIMIT 1",
+            (book[0],)
+        )
+        existing_checkout = cur.fetchone()
+        if existing_checkout:
+            conn.close()
+            return jsonify({'success': False, 'error': 'This copy is already checked out'}), 409
         
         print(f'DEBUG: Inserting checkout - student_id: {data.get("student_id")}, book_id: {book[0]}, date: {data.get("checkout_date")}')
         cur.execute('''
@@ -1104,10 +1122,19 @@ def main_page():
     
     # Get outstanding books (not yet returned)
     cur.execute('''
-        SELECT b.title, b.localnumber, s.name as student_name, s.fax_id as student_fax_id, c.checkout_date, c.id as checkout_id
+        SELECT
+            b.title,
+            b.localnumber,
+            s.name as student_name,
+            s.fax_id as student_fax_id,
+            s.class_id,
+            cl.name as class_name,
+            c.checkout_date,
+            c.id as checkout_id
         FROM checkouts c
         JOIN books b ON c.book_id = b.rowid
         JOIN students s ON c.student_id = s.id
+        LEFT JOIN classes cl ON s.class_id = cl.id
         WHERE c.return_date IS NULL
         ORDER BY c.checkout_date ASC, c.id ASC
     ''')

@@ -148,6 +148,7 @@
                     <label class="label">Book</label>
                     <div class="control">
                         <input class="input is-primary" type="text" id="book-search" placeholder="Search for book..." autocomplete="off">
+                        <input type="hidden" name="book_id" id="selected-book-id">
                         <input type="hidden" name="book_title" id="selected-book-title">
                         <div id="book-results" class="box" style="display:none; max-height: 150px; overflow-y: auto;"></div>
                     </div>
@@ -194,11 +195,15 @@
         <div class="is-flex is-justify-content-space-between is-align-items-center mb-4">
             <h2 class="title is-4 has-text-white mb-0">Outstanding Books</h2>
             <div class="field">
-                <div class="control has-icons-left">
-                    <input class="input is-primary" type="text" id="checkout-search" placeholder="Search...">
-                    <span class="icon is-left has-text-primary">
-                        <i class="fas fa-search"></i>
-                    </span>
+                <div class="control">
+                    <div class="select is-primary">
+                        <select id="checkout-serach">
+                            <option value="all" selected>All Classes</option>
+                            {% for c in classes %}
+                                <option value="{{ c['id'] }}">{{ c['name'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
@@ -209,6 +214,7 @@
                 <tr class="checkout-row" 
                     data-title="{{ c['title'] | lower }}" 
                     data-student="{{ c['student_name'] | lower }}" 
+                    data-class-id="{{ c['class_id'] if c['class_id'] else '' }}"
                     data-checkout-date="{{ c['checkout_date'] }}" 
                     data-due-date="{{ c['checkout_date'] | due_date }}">
                     <td colspan="3" style="padding:0; border:none; background:none;">
@@ -244,7 +250,7 @@
             </tbody>
         </table>
         <div id="no-results" style="display: none;">
-            <p class="has-text-white">No checkouts match your search.</p>
+            <p class="has-text-white">No checkouts match this class.</p>
         </div>
         {% else %}
         <p class="has-text-white">No outstanding books.</p>
@@ -430,7 +436,7 @@ document.addEventListener('DOMContentLoaded', function() {
             Array.from(addCheckoutForm.elements).forEach(function(el) {
                 if (el.name) formData[el.name] = el.value;
             });
-            if (!formData.student_id || !formData.book_title) {
+            if (!formData.student_id || !formData.book_id) {
                 alert('Please select both a student and a book.');
                 return;
             }
@@ -502,11 +508,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Book search functionality
     const bookSearch = document.getElementById('book-search');
     const bookResults = document.getElementById('book-results');
+    const selectedBookId = document.getElementById('selected-book-id');
     const selectedBookTitle = document.getElementById('selected-book-title');
     
     if (bookSearch) {
         bookSearch.addEventListener('input', function() {
             console.log('Book search triggered:', bookSearch.value);
+            selectedBookId.value = '';
+            selectedBookTitle.value = '';
             const query = bookSearch.value.trim();
             if (query.length < 2) {
                 bookResults.style.display = 'none';
@@ -519,7 +528,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const books = data.books || [];
                     if (books.length > 0) {
                         bookResults.innerHTML = books.map(b => 
-                            `<div class="book-option" data-title="${b.title}" style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #6a9a75; background: #2b2d31; color: white;">${b.title} by ${b.author}</div>`
+                            `<div class="book-option" data-id="${b.id}" data-title="${b.title}" style="padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #6a9a75; background: #2b2d31; color: white;">${b.title} by ${b.author}${b.localnumber ? ` (Local #: ${b.localnumber})` : ''}</div>`
                         ).join('');
                         bookResults.style.display = 'block';
                     } else {
@@ -534,6 +543,7 @@ document.addEventListener('DOMContentLoaded', function() {
         bookResults.addEventListener('click', function(e) {
             if (e.target.classList.contains('book-option')) {
                 bookSearch.value = e.target.textContent;
+                selectedBookId.value = e.target.dataset.id;
                 selectedBookTitle.value = e.target.dataset.title;
                 bookResults.style.display = 'none';
             }
@@ -655,28 +665,21 @@ document.addEventListener('DOMContentLoaded', function() {
         closeModal();
     }
 
-    // Checkout search functionality
-    const checkoutSearch = document.getElementById('checkout-search');
-    if (checkoutSearch) {
-        checkoutSearch.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase().trim();
+    // Checkout class filter functionality
+    const checkoutClassFilter = document.getElementById('checkout-serach');
+    if (checkoutClassFilter) {
+        checkoutClassFilter.addEventListener('change', function() {
+            const selectedClassId = this.value;
             const rows = document.querySelectorAll('.checkout-row');
             const noResults = document.getElementById('no-results');
             const tableBody = document.getElementById('checkout-table-body');
             let visibleCount = 0;
 
             rows.forEach(row => {
-                const title = row.dataset.title;
-                const student = row.dataset.student;
-                const checkoutDate = row.dataset.checkoutDate;
-                const dueDate = row.dataset.dueDate.toLowerCase();
+                const rowClassId = row.dataset.classId || '';
+                const matchesClass = selectedClassId === 'all' || rowClassId === selectedClassId;
 
-                const matches = title.includes(searchTerm) || 
-                               student.includes(searchTerm) || 
-                               checkoutDate.includes(searchTerm) ||
-                               dueDate.includes(searchTerm);
-
-                if (matches) {
+                if (matchesClass) {
                     row.style.display = '';
                     visibleCount++;
                 } else {
@@ -685,7 +688,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             // Show/hide no results message
-            if (visibleCount === 0 && searchTerm.length > 0 && rows.length > 0) {
+            if (visibleCount === 0 && rows.length > 0) {
                 noResults.style.display = 'block';
                 tableBody.style.display = 'none';
             } else {
