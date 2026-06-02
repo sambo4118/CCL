@@ -6,7 +6,10 @@ $neutral-color-dark : #2e2e2e;
 @use "bulma/sass" with (
     $family-primary: '"outfit", sans-serif',
     $primary: $dark-green,
-    $link: $light-green,
+    $info: $light-green,
+    $green: $light-green,
+    $light: $neutral-color-light,
+    $dark: $neutral-color-dark,
     $control-border-width: 2px,
     $input-shadow: none
 );
@@ -20,6 +23,7 @@ $neutral-color-dark : #2e2e2e;
 .theme-light {
     @include dark-theme.dark-theme;
     @include theme-setup.setup-theme;
+    $light: $dark-green;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
