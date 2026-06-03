@@ -18,7 +18,7 @@ export const books = sqliteTable("books", {
     title: text("title").notNull(),
     subtitle: text("subtitle"),
     author: text("author").notNull(),
-    call1: text("call1").notNull(),
+    call1: text("call1"),
     call2: text("call2"),
     publisher: text("publisher"),
     published: integer("published"),

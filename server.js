@@ -25,9 +25,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // #region API Routes
 
 import meRoute from './apiRoutes/me.js';
-import { importBooksRoute } from './apiRoutes/books.js';
+import booksRoute from './apiRoutes/books.js';
 
-app.use('/api/importBooks', importBooksRoute);
+app.use('/api/books', booksRoute);
 
 app.use('/api/me', meRoute);
 
