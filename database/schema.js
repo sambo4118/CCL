@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm/sql";
 import { sqliteTable, integer, text, blob } from "drizzle-orm/sqlite-core";
 
 export const classes = sqliteTable("classes", {
