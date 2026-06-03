@@ -506,17 +506,34 @@ def add_checkout():
     cur = conn.cursor()
     try:
         # Prefer unique rowid from the client to avoid collisions on duplicate titles.
+        book = None
         book_id = data.get('book_id')
         if book_id:
-            cur.execute("SELECT rowid FROM books WHERE rowid = ?", (book_id,))
-        else:
-            # Backward-compatible fallback for older clients.
-            cur.execute("SELECT rowid FROM books WHERE title = ?", (data.get('book_title'),))
+            try:
+                book_id = int(book_id)
+            except (TypeError, ValueError):
+                conn.close()
+                return jsonify({'success': False, 'error': 'Invalid book_id. Please select a book copy from search results.'}), 400
 
-        book = cur.fetchone()
-        if not book:
-            conn.close()
-            return jsonify({'success': False, 'error': 'Book not found'}), 404
+            cur.execute("SELECT rowid FROM books WHERE rowid = ?", (book_id,))
+            book = cur.fetchone()
+            if not book:
+                conn.close()
+                return jsonify({'success': False, 'error': 'Book not found for the selected copy.'}), 404
+        else:
+            # Backward-compatible fallback for older clients using title-only payloads.
+            cur.execute("SELECT rowid FROM books WHERE title = ? LIMIT 2", (data.get('book_title'),))
+            matches = cur.fetchall()
+            if not matches:
+                conn.close()
+                return jsonify({'success': False, 'error': 'Book not found'}), 404
+            if len(matches) > 1:
+                conn.close()
+                return jsonify({
+                    'success': False,
+                    'error': 'Multiple copies match this title. Please select a specific copy so book_id is included.'
+                }), 409
+            book = matches[0]
 
         cur.execute(
             "SELECT id FROM checkouts WHERE book_id = ? AND return_date IS NULL LIMIT 1",
@@ -1617,7 +1634,7 @@ def book_detail(localnumber):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
+    cur.execute("SELECT rowid AS book_id, * FROM books WHERE localnumber = ?", (localnumber,))
     book = cur.fetchone()
     checkouts = []
     if book:
@@ -1628,7 +1645,7 @@ def book_detail(localnumber):
             WHERE c.book_id = ?
             ORDER BY c.checkout_date DESC, c.id DESC
             LIMIT 20
-        ''', (book['rowid'],))
+        ''', (book['book_id'],))
         checkouts = cur.fetchall()
     conn.close()
     if not book:
@@ -1700,7 +1717,7 @@ def book_api(localnumber):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
+    cur.execute("SELECT rowid AS book_id, * FROM books WHERE localnumber = ?", (localnumber,))
     book = cur.fetchone()
     if not book:
         conn.close()
@@ -1712,12 +1729,13 @@ def book_api(localnumber):
         FROM checkouts c
         JOIN students s ON c.student_id = s.id
         WHERE c.book_id = ? AND c.return_date IS NULL
-    ''', (book['rowid'],))
+    ''', (book['book_id'],))
     active_checkout = cur.fetchone()
     
     conn.close()
     
     result = {
+        'id': book['book_id'],
         'title': book['title'],
         'subtitle': book['subtitle'],
         'author': book['author'],
