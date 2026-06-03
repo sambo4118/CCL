@@ -2266,16 +2266,19 @@ def assign_book_ids():
 
         if 'id' not in columns:
             cur.execute("ALTER TABLE books ADD COLUMN id INTEGER")
+            conn.commit()
             created_id_column = True
 
-        cur.execute("UPDATE books SET id = rowid WHERE id IS NULL OR id = 0")
-        updated_count = cur.rowcount if cur.rowcount != -1 else 0
+        cur.execute("SELECT COUNT(*) FROM books WHERE id IS NULL")
+        updated_count = cur.fetchone()[0]
+
+        cur.execute("UPDATE books SET id = rowid WHERE id IS NULL")
 
         cur.execute('''
             CREATE TRIGGER IF NOT EXISTS books_assign_id_after_insert
             AFTER INSERT ON books
             FOR EACH ROW
-            WHEN NEW.id IS NULL OR NEW.id = 0
+            WHEN NEW.id IS NULL
             BEGIN
                 UPDATE books
                 SET id = NEW.rowid
@@ -2294,7 +2297,8 @@ def assign_book_ids():
         })
 
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f"[ASSIGN BOOK IDS] Error: {e}", file=sys.stderr, flush=True)
+        return jsonify({'success': False, 'error': 'Failed to assign book IDs'}), 500
 
 
 # ============================================================================
