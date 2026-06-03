@@ -133,6 +133,22 @@
                     </div>
                 </div>
             </div>
+            <div class="column is-half-tablet is-full-mobile">
+                <div class="settings-item box has-background-warning p-2">
+                    <div class="columns is-vcentered is-mobile">
+                        <div class="column is-narrow">
+                            <button class="button is-warning" id="assign-book-ids-btn" type="button" title="Assign IDs to all books">
+                                <span class="icon">
+                                    <i class="fas fa-hashtag"></i>
+                                </span>
+                            </button>
+                        </div>
+                        <div class="column">
+                            <strong class="has-text-dark is-vcentered">ASSIGN BOOK IDS</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- Link (Blue) Buttons -->
@@ -861,6 +877,71 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .finally(() => {
                     // Restore button state
+                    btn.querySelector('i').className = originalIcon;
+                    btn.disabled = false;
+                });
+            }
+        );
+    });
+
+    // Assign book IDs functionality
+    document.getElementById('assign-book-ids-btn').addEventListener('click', function() {
+        showConfirmation(
+            'Assign Book IDs',
+            'Assign IDs to all existing books now? A backup will be created automatically.',
+            () => {
+                const btn = document.getElementById('assign-book-ids-btn');
+                const originalIcon = btn.querySelector('i').className;
+                btn.querySelector('i').className = 'fas fa-spinner fa-spin';
+                btn.disabled = true;
+
+                fetch('/assign_book_ids', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.error || 'Failed to assign book IDs');
+                    }
+
+                    const notification = document.createElement('div');
+                    notification.className = 'notification is-primary';
+                    notification.innerHTML = `
+                        <button class="delete"></button>
+                        <strong>Success!</strong> ${data.message}
+                    `;
+                    document.body.appendChild(notification);
+
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 5000);
+
+                    notification.querySelector('.delete').addEventListener('click', () => {
+                        notification.remove();
+                    });
+                })
+                .catch(error => {
+                    console.error('Error assigning book IDs:', error);
+                    const notification = document.createElement('div');
+                    notification.className = 'notification is-danger';
+                    notification.innerHTML = `
+                        <button class="delete"></button>
+                        <strong>Error!</strong> Failed to assign book IDs: ${error.message}
+                    `;
+                    document.body.appendChild(notification);
+
+                    setTimeout(() => {
+                        notification.remove();
+                    }, 5000);
+
+                    notification.querySelector('.delete').addEventListener('click', () => {
+                        notification.remove();
+                    });
+                })
+                .finally(() => {
                     btn.querySelector('i').className = originalIcon;
                     btn.disabled = false;
                 });

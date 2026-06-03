@@ -2251,6 +2251,51 @@ def clear_checkouts():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/assign_book_ids', methods=['POST'])
+def assign_book_ids():
+    """Ensure every book has an ID value, including legacy databases."""
+    try:
+        trigger_event_backup('assign_book_ids')
+
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+
+        cur.execute("PRAGMA table_info(books)")
+        columns = [row[1] for row in cur.fetchall()]
+        created_id_column = False
+
+        if 'id' not in columns:
+            cur.execute("ALTER TABLE books ADD COLUMN id INTEGER")
+            created_id_column = True
+
+        cur.execute("UPDATE books SET id = rowid WHERE id IS NULL OR id = 0")
+        updated_count = cur.rowcount if cur.rowcount != -1 else 0
+
+        cur.execute('''
+            CREATE TRIGGER IF NOT EXISTS books_assign_id_after_insert
+            AFTER INSERT ON books
+            FOR EACH ROW
+            WHEN NEW.id IS NULL OR NEW.id = 0
+            BEGIN
+                UPDATE books
+                SET id = NEW.rowid
+                WHERE rowid = NEW.rowid;
+            END;
+        ''')
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'updated_count': updated_count,
+            'created_id_column': created_id_column,
+            'message': f'Assigned IDs for {updated_count} book(s).'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # ============================================================================
 # APPLICATION ENTRY POINT
