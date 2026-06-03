@@ -100,6 +100,7 @@
                         <p><strong>Author:</strong> <span id="book-author"></span></p>
                     </div>
                     <input type="hidden" name="book_title" id="selected-book-title">
+                    <input type="hidden" name="book_id" id="selected-book-id">
                 </div>
                 <div class="field">
                     <label class="label">Student</label>
@@ -297,6 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
         checkoutForm.reset();
         bookDetails.style.display = 'none';
         document.getElementById('selected-book-title').value = '';
+        document.getElementById('selected-book-id').value = '';
         document.getElementById('selected-student-name').textContent = 'Select a student';
         studentDropdown.classList.remove('is-active');
     }
@@ -314,6 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (localId.length < 1) {
             bookDetails.style.display = 'none';
             document.getElementById('selected-book-title').value = '';
+            document.getElementById('selected-book-id').value = '';
             return;
         }
 
@@ -342,6 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         document.getElementById('book-subtitle').textContent = book.subtitle || 'N/A';
                         document.getElementById('book-author').textContent = book.author || 'N/A';
                         document.getElementById('selected-book-title').value = book.title;
+                        document.getElementById('selected-book-id').value = book.id || '';
                         
                         // Check if book is already checked out
                         if (book.checked_out && book.checked_out_to_fax_id !== currentStudentFaxId) {
@@ -370,6 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Reset all states on error
                     bookDetails.style.display = 'none';
                     document.getElementById('selected-book-title').value = '';
+                    document.getElementById('selected-book-id').value = '';
                     const bookDetailsBox = bookDetails.querySelector('.box');
                     bookDetailsBox.classList.remove('has-background-danger-light');
                     bookDetailsBox.style.border = '';
@@ -386,12 +391,23 @@ document.addEventListener('DOMContentLoaded', function() {
     saveCheckoutBtn.addEventListener('click', function() {
         const formData = {
             student_id: document.getElementById('selected-student-id').value,
+            book_id: document.getElementById('selected-book-id').value,
             book_title: document.getElementById('selected-book-title').value,
             checkout_date: document.getElementById('checkout-date-hidden').value
         };
 
-        if (!formData.student_id || !formData.book_title || !formData.checkout_date) {
-            alert('Please fill in all required fields');
+        if (!formData.student_id) {
+            alert('Please select a student.');
+            return;
+        }
+
+        if (!formData.book_id) {
+            alert('Please select a valid book copy.');
+            return;
+        }
+
+        if (!formData.checkout_date) {
+            alert('Please select a checkout date.');
             return;
         }
 
