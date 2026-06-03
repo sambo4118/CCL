@@ -1634,7 +1634,7 @@ def book_detail(localnumber):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT * FROM books WHERE localnumber = ?", (localnumber,))
+    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
     book = cur.fetchone()
     checkouts = []
     if book:
@@ -1645,7 +1645,7 @@ def book_detail(localnumber):
             WHERE c.book_id = ?
             ORDER BY c.checkout_date DESC, c.id DESC
             LIMIT 20
-        ''', (book['id'],))
+        ''', (book['rowid'],))
         checkouts = cur.fetchall()
     conn.close()
     if not book:
@@ -1717,7 +1717,7 @@ def book_api(localnumber):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT * FROM books WHERE localnumber = ?", (localnumber,))
+    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
     book = cur.fetchone()
     if not book:
         conn.close()
@@ -1729,13 +1729,13 @@ def book_api(localnumber):
         FROM checkouts c
         JOIN students s ON c.student_id = s.id
         WHERE c.book_id = ? AND c.return_date IS NULL
-    ''', (book['id'],))
+    ''', (book['rowid'],))
     active_checkout = cur.fetchone()
     
     conn.close()
     
     result = {
-        'id': book['id'],
+        'id': book['rowid'],
         'title': book['title'],
         'subtitle': book['subtitle'],
         'author': book['author'],
@@ -2250,6 +2250,55 @@ def clear_checkouts():
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/assign_book_ids', methods=['POST'])
+def assign_book_ids():
+    """Ensure every book has an ID value, including legacy databases."""
+    try:
+        trigger_event_backup('assign_book_ids')
+
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+
+        cur.execute("PRAGMA table_info(books)")
+        columns = [row[1] for row in cur.fetchall()]
+        created_id_column = False
+
+        if 'id' not in columns:
+            cur.execute("ALTER TABLE books ADD COLUMN id INTEGER")
+            conn.commit()
+            created_id_column = True
+
+        cur.execute("SELECT COUNT(*) FROM books WHERE id IS NULL")
+        updated_count = cur.fetchone()[0]
+
+        cur.execute("UPDATE books SET id = rowid WHERE id IS NULL")
+
+        cur.execute('''
+            CREATE TRIGGER IF NOT EXISTS books_assign_id_after_insert
+            AFTER INSERT ON books
+            FOR EACH ROW
+            WHEN NEW.id IS NULL
+            BEGIN
+                UPDATE books
+                SET id = NEW.rowid
+                WHERE rowid = NEW.rowid;
+            END;
+        ''')
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'updated_count': updated_count,
+            'created_id_column': created_id_column,
+            'message': f'Assigned IDs for {updated_count} book(s).'
+        })
+
+    except Exception as e:
+        print(f"[ASSIGN BOOK IDS] Error: {e}", file=sys.stderr, flush=True)
+        return jsonify({'success': False, 'error': 'Failed to assign book IDs'}), 500
 
 
 # ============================================================================
