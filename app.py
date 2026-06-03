@@ -1634,7 +1634,7 @@ def book_detail(localnumber):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT * FROM books WHERE localnumber = ?", (localnumber,))
+    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
     book = cur.fetchone()
     checkouts = []
     if book:
@@ -1645,7 +1645,7 @@ def book_detail(localnumber):
             WHERE c.book_id = ?
             ORDER BY c.checkout_date DESC, c.id DESC
             LIMIT 20
-        ''', (book['id'],))
+        ''', (book['rowid'],))
         checkouts = cur.fetchall()
     conn.close()
     if not book:
@@ -1717,7 +1717,7 @@ def book_api(localnumber):
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT * FROM books WHERE localnumber = ?", (localnumber,))
+    cur.execute("SELECT rowid, * FROM books WHERE localnumber = ?", (localnumber,))
     book = cur.fetchone()
     if not book:
         conn.close()
@@ -1729,13 +1729,13 @@ def book_api(localnumber):
         FROM checkouts c
         JOIN students s ON c.student_id = s.id
         WHERE c.book_id = ? AND c.return_date IS NULL
-    ''', (book['id'],))
+    ''', (book['rowid'],))
     active_checkout = cur.fetchone()
     
     conn.close()
     
     result = {
-        'id': book['id'],
+        'id': book['rowid'],
         'title': book['title'],
         'subtitle': book['subtitle'],
         'author': book['author'],
