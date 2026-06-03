@@ -34,3 +34,12 @@ export const checkouts = sqliteTable("checkouts", {
     checkoutDate: text("checkout_date").notNull().default(sql`CURRENT_TIMESTAMP`),
     returnDate: text("return_date"),
 });
+
+export const users = sqliteTable("users", {
+    id: integer("id").primaryKey(),
+    googleId: text("google_id").notNull().unique(),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    picture: text("picture"),
+    domain: text("domain")
+});

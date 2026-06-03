@@ -1,2 +1,4 @@
 database/library.db
 database/library.db-*
+.env
+authentication/sessions.db
