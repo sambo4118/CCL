@@ -396,8 +396,18 @@ document.addEventListener('DOMContentLoaded', function() {
             checkout_date: document.getElementById('checkout-date-hidden').value
         };
 
-        if (!formData.student_id || !formData.book_id || !formData.checkout_date) {
-            alert('Please scan or enter a valid local number and select a specific book copy.');
+        if (!formData.student_id) {
+            alert('Please select a student.');
+            return;
+        }
+
+        if (!formData.book_id) {
+            alert('Please select a valid book copy.');
+            return;
+        }
+
+        if (!formData.checkout_date) {
+            alert('Please select a checkout date.');
             return;
         }
 
