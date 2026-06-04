@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { eq, count } from 'drizzle-orm';
+import { eq, count, like, or } from 'drizzle-orm';
 import { db } from '../database/index.js';
 import { books } from '../database/schema.js';
 import { importBooks } from '../services/importBooks.js';
@@ -46,6 +46,28 @@ booksRoute.get('/count', async (req, res) => {
     }
 });
 
+// SEARCH /api/books/search?q=... — search books
+booksRoute.get('/search', async (req, res) => {
+    const q = req.query.q?.toString().trim();
+    if (!q) return res.status(400).json({ error: 'Missing search query' });
+    try {
+        const pattern = `%${q}%`;
+        const results = await db.select().from(books).where(
+            or(
+                like(books.title, pattern),
+                like(books.author, pattern),
+                like(books.isbn, pattern),
+                like(books.publisher, pattern),
+                like(books.localNumber, pattern),
+            )
+        );
+        res.json(results);
+    } catch (error) {
+        console.error('Error searching books:', error);
+        res.status(500).json({ error: 'Failed to search books', details: error.message });
+    }
+});
+
 // GET /api/books/:id — fetch a single book
 booksRoute.get('/:id', async (req, res) => {
     const id = Number(req.params.id);
@@ -57,19 +79,6 @@ booksRoute.get('/:id', async (req, res) => {
     } catch (error) {
         console.error('Error fetching book:', error);
         res.status(500).json({ error: 'Failed to fetch book' });
-    }
-});
-
-// DELETE /api/books/:id — remove a book
-booksRoute.delete('/:id', async (req, res) => {
-    const id = Number(req.params.id);
-    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
-    try {
-        await db.delete(books).where(eq(books.id, id));
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error deleting book:', error);
-        res.status(500).json({ error: 'Failed to delete book' });
     }
 });
 
