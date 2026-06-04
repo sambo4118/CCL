@@ -79,7 +79,7 @@ async function uploadBooks(formData) {
 document.addEventListener('DOMContentLoaded', () => {
     const loadBooksButton = document.getElementById('importBooksButton');
     loadBooksButton?.addEventListener('click', () => {
-        showWarning('This will overwrite your current library. Are you sure you want to continue?', loadBooks)
+        loadBooks();
     });
 });
 

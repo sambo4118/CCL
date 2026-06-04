@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { eq } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 import { db } from '../database/index.js';
 import { books } from '../database/schema.js';
 import { importBooks } from '../services/importBooks.js';
@@ -32,6 +32,17 @@ booksRoute.get('/', async (req, res) => {
     } catch (error) {
         console.error('Error listing books:', error);
         res.status(500).json({ error: 'Failed to list books' });
+    }
+});
+
+// GET /api/books/count — count all books
+booksRoute.get('/count', async (req, res) => {
+    try {
+        const [result] = await db.select({ count: count() }).from(books);
+        res.json({ count: Number(result?.count ?? 0) });
+    } catch (error) {
+        console.error('Error counting books:', error);
+        res.status(500).json({ error: 'Failed to count books' });
     }
 });
 

@@ -13,11 +13,18 @@ export const students = sqliteTable("students", {
     classId: integer("class_id").notNull().references(() => classes.id),
 });
 
+export const authors = sqliteTable("authors", {
+    id: integer("id").primaryKey(),
+    name: text("name").notNull().unique(),
+});
+
 export const books = sqliteTable("books", {
     id: integer("id").primaryKey(),
+    localNumber: text("local_number").notNull(),
     title: text("title").notNull(),
     subtitle: text("subtitle"),
-    author: text("author").notNull(),
+    authorId: integer("author_id").references(() => authors.id),
+    author: text("author"),
     call1: text("call1"),
     call2: text("call2"),
     publisher: text("publisher"),

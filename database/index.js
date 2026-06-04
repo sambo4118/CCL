@@ -6,7 +6,7 @@ import * as schema from "./schema.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sqlite = new Database(path.join(__dirname, "library.db"));
-sqlite.pragma("journal_mode = WAL");
+sqlite.pragma("journal_mode = DELETE");
 sqlite.pragma("foreign_keys = ON");
 
 export const db = drizzle(sqlite, { schema });
