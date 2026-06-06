@@ -51,3 +51,10 @@ export const users = sqliteTable("users", {
     picture: text("picture"),
     domain: text("domain")
 });
+
+export const allowedEmails = sqliteTable("allowed_emails", {
+    id: integer("id").primaryKey(),
+    email: text("email").notNull().unique(),
+    note: text("note"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});

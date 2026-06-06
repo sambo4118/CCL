@@ -12,26 +12,80 @@
     <body>
         <!-- NAVBAR -->
          <div class="container mt-5">
-            <div class="columns is-multiline">
-                <div class="column is-3">
+            <div class="columns is-multiline is-2">
+                <div class="column is-one-quarter">
                     <div class="button is-responsive is-info has-text-white" id="importBooksButton">
                       <div class="columns m-1 is-vcentered">
-                        
-                        <div class="column is-narrow">
-                          <span class="icon is-">
+                        <div class="column is-narrow mr-3">
+                          <span class="icon">
                             <i class="fa-solid fa-file-import fa-2x"></i>
                           </span>
                         </div>
-
                         <div class="column">
                           <p class="is-size-4">Import Books</p>
                         </div>
-
                     </div>
                 </div>
+              </div>
+                <div class="column is-one-quarter">
+                    <div class="button is-responsive is-info has-text-white" id="manageUsersButton">
+                        <div class="columns m-1 is-vcentered">
+                            <div class="column is-narrow mr-3">
+                              <span class="icon">
+                                <i class="fa-solid fa-users fa-2x"></i>
+                              </span>
+                            </div>
+                            <div class="column">
+                              <p class="is-size-4">Manage Users</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="column is-one-quarter">
+                    <div class="button is-responsive is-info has-text-white" id="importStudentsButton">
+                      <div class="columns m-1 is-vcentered">
+                        <div class="column is-narrow mr-3">
+                          <span class="icon">
+                            <i class="fa-solid fa-user-graduate fa-2x"></i>
+                          </span>
+                        </div>
+                        <div class="column">
+                          <p class="is-size-4">Import Students</p>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            </div>
+        </div>
+    </body>
+    
+    <div class="modal" id="manageUsersModal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Manage Users</p>
+          <button class="delete" aria-label="close" id="closeManageUsersModal"></button>
+        </header>
+        <section class="modal-card-body">
+          <div id="userChipsContainer" class="columns mb-5">
+            <!-- User list will be populated here -->
+          </div>
+          <div class="columns is-2">
+            <div class="column">
+              <input class="input mb-3" type="text" id="newUserEmail" placeholder="Enter user email">
+            </div>
+            <div class="column is-narrow">
+              <button class="button is-success has-text-white" id="addUserButton">Add User</button>
             </div>
           </div>
-    </body>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button" id="closeManageUsersFooterButton">Close</button>
+        </footer>
+      </div>
+    </div>
+    </div>
+    
     <div class="modal" id="importBooksModal">
       <div class="modal-background"></div>
       <div class="modal-card">
@@ -63,4 +117,37 @@
         </footer>
       </div>
     </div>
+    
+    <div class="modal" id="importStudentsModal">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Import Students</p>
+          <button class="delete" aria-label="close" id="closeStudentImportModal"></button>
+        </header>
+        <section class="modal-card-body">
+          <div class="file has-name is-boxed is-fullwidth">
+            <label class="file-label">
+              <input class="file-input" type="file" name="students" id="studentFileInput">
+              <span class="file-cta">
+                <span class="file-icon">
+                  <i class="fas fa-upload"></i>
+                </span>
+                <span class="file-label">
+                  Choose a file…
+                </span>
+              </span>
+              <span class="file-name" id="studentFileName">
+                No file selected
+              </span>
+            </label>
+          </div>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-success" id="confirmStudentImport">Import</button>
+          <button class="button" id="cancelStudentImport">Cancel</button>
+        </footer>
+      </div>
+    </div>
+
 </html>

@@ -1,30 +1,25 @@
-import { showWarning, addChips } from '../utils.js'
-import { setupImportBooks } from './uploadBooks.js';
-import { setupImportStudents } from './uploadStudents.js';
-import { setupManageUsers } from './manageUsers.js';
-
-function loadBooks() {
-    const modal = document.getElementById('importBooksModal');
-    if (!modal) return console.error('Import Books modal not found');
+function loadStudents() {
+    const modal = document.getElementById('importStudentsModal');
+    if (!modal) return console.error('Import Students modal not found');
     modal.classList.add('is-active');
-    
+
     const closemodal = () => {
         modal.classList.remove('is-active');
     };
-    
-    const closeButton = document.getElementById('closeImportModal');
+
+    const closeButton = document.getElementById('closeStudentImportModal');
     closeButton.addEventListener('click', closemodal);
 
-    const cancelButton = document.getElementById('cancelImport');
+    const cancelButton = document.getElementById('cancelStudentImport');
     cancelButton.addEventListener('click', closemodal);
 
-    const fileInput = document.getElementById('bookFileInput');
+    const fileInput = document.getElementById('studentFileInput');
     fileInput.addEventListener('change', async () => {
         const file = fileInput.files?.[0];
         handleFileUpload(file);
     });
 
-    const confirmButton = document.getElementById('confirmImport');
+    const confirmButton = document.getElementById('confirmStudentImport');
     confirmButton.addEventListener('click', async () => {
         const file = fileInput.files?.[0];
         if (!file) {
@@ -44,11 +39,11 @@ function loadBooks() {
         formData.append('file', file);
         confirmButton.classList.add('is-loading');
         try {
-            const result = await uploadBooks(formData);
-            console.log('Books uploaded successfully:', result);
+            const result = await uploadStudents(formData);
+            console.log('Students uploaded successfully:', result);
             closemodal();
         } catch (error) {
-            console.error('Error uploading books:', error);
+            console.error('Error uploading students:', error);
             confirmButton.classList.add('is-danger');
             confirmButton.textContent = 'Upload failed';
             new Promise(resolve => setTimeout(resolve, 2000)).then(() => {
@@ -64,24 +59,24 @@ function loadBooks() {
 function handleFileUpload(file) {
     const formData = new FormData();
 
-    const fileNameField = document.getElementById('fileName');
+    const fileNameField = document.getElementById('studentFileName');
     fileNameField.textContent = `${file.name}`;
 
     return formData.append('file', file);
 }
 
-async function uploadBooks(formData) {
-    const res = await fetch('/api/books/import', {
+async function uploadStudents(formData) {
+    const res = await fetch('/api/students/import', {
         method: 'POST',
         body: formData
     });
-    if (!res.ok) throw new Error(`Failed to upload books: ${res.status}`);
+    if (!res.ok) throw new Error(`Failed to upload students: ${res.status}`);
     return res.json();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    setupImportBooks();
-    setupImportStudents();
-    setupManageUsers();
-});
-
+export function setupImportStudents() {
+    const loadStudentsButton = document.getElementById('importStudentsButton');
+    loadStudentsButton?.addEventListener('click', () => {
+        loadStudents();
+    });
+}

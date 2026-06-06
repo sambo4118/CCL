@@ -99,12 +99,59 @@ async function fromOpenLibrarySearch(book) {
     }
 }
 
+// iTunes returns a small thumbnail by default. Bumping the path component
+// from 100x100bb.jpg to a larger size gives a usable cover.
+const upscaleItunesArtwork = (url) =>
+    url ? url.replace(/\/\d+x\d+bb\./, '/600x600bb.') : null;
+
+async function fromItunesIsbn(book) {
+    const isbn = cleanIsbn(book.isbn);
+    if (!isbn) return null;
+    const params = new URLSearchParams({
+        term: isbn,
+        media: 'ebook',
+        limit: '1',
+    });
+    try {
+        const res = await fetch(`https://itunes.apple.com/search?${params}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const url = upscaleItunesArtwork(data?.results?.[0]?.artworkUrl100);
+        return await downloadImage(url);
+    } catch (err) {
+        console.warn(`iTunes ISBN lookup failed: ${err.message}`);
+        return null;
+    }
+}
+
+async function fromItunesTitle(book) {
+    if (!book.title) return null;
+    const term = book.author ? `${book.title} ${book.author}` : book.title;
+    const params = new URLSearchParams({
+        term,
+        media: 'ebook',
+        limit: '1',
+    });
+    try {
+        const res = await fetch(`https://itunes.apple.com/search?${params}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const url = upscaleItunesArtwork(data?.results?.[0]?.artworkUrl100);
+        return await downloadImage(url);
+    } catch (err) {
+        console.warn(`iTunes title search failed: ${err.message}`);
+        return null;
+    }
+}
+
 // Order matters: most accurate first, fuzzier fallbacks last.
 const providers = [
     { name: 'google-isbn',        fn: fromGoogleBooksIsbn },
     { name: 'openlibrary-isbn',   fn: fromOpenLibraryIsbn },
+    { name: 'itunes-isbn',        fn: fromItunesIsbn },
     { name: 'google-title',       fn: fromGoogleBooksTitle },
     { name: 'openlibrary-search', fn: fromOpenLibrarySearch },
+    { name: 'itunes-title',       fn: fromItunesTitle },
 ];
 
 // ---------- public API ----------
@@ -112,18 +159,21 @@ const providers = [
 export async function getBookCover(book) {
     if (book.coverImage) return book.coverImage;
 
+    const attempts = [];
     for (const { name, fn } of providers) {
         const buffer = await fn(book);
         if (buffer) {
+            attempts.push(`${name}=hit`);
             db.update(books)
                 .set({ coverImage: buffer })
                 .where(eq(books.id, book.id))
                 .run();
-            console.log(`✓ cover for "${book.title}" via ${name}`);
+            console.log(`✓ "${book.title}" cover via ${name} [tried: ${attempts.join(', ')}]`);
             return buffer;
         }
+        attempts.push(`${name}=miss`);
     }
 
-    console.warn(`✗ no cover found for "${book.title}" (isbn=${book.isbn ?? '—'})`);
+    console.warn(`✗ no cover for "${book.title}" (isbn=${book.isbn ?? '—'}) [tried: ${attempts.join(', ')}]`);
     return false;
 }

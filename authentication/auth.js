@@ -7,6 +7,9 @@ import Database from 'better-sqlite3';
 import betterSqlite3SessionStoreFactory from 'better-sqlite3-session-store';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { eq } from 'drizzle-orm';
+import { db } from '../database/index.js';
+import { allowedEmails } from '../database/schema.js';
 
 export function setupSessionStore(app) {
 
@@ -35,21 +38,56 @@ export function setupSessionStore(app) {
     return { sessionDb, SQLiteStore };
 }
 
+function seedAdminEmails() {
+    const raw = process.env.ADMIN_EMAILS || '';
+    const emails = raw
+        .split(',')
+        .map(e => e.trim().toLowerCase())
+        .filter(Boolean);
+
+    for (const email of emails) {
+        db.insert(allowedEmails)
+            .values({ email, note: 'admin (seeded from ADMIN_EMAILS)' })
+            .onConflictDoNothing()
+            .run();
+    }
+
+    if (emails.length) {
+        console.log(`Seeded ${emails.length} admin email(s) into allow list.`);
+    }
+}
+
 export function setupPassport(app) {
+    seedAdminEmails();
+
     passport.use(new GoogleStrategy({
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
         callbackURL: '/auth/google/callback',
         userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo'
     }, (accessToken, refreshToken, profile, done) => {
+        const email = profile.emails?.[0]?.value?.toLowerCase();
+        if (!email) {
+            return done(null, false, { message: 'No email on Google profile' });
+        }
+
+        const allowed = db
+            .select()
+            .from(allowedEmails)
+            .where(eq(allowedEmails.email, email))
+            .get();
+
+        if (!allowed) {
+            return done(null, false, { message: 'Email not on allow list' });
+        }
+
         const user = {
             googleId: profile.id,
-            email: profile.emails[0].value,
+            email,
             name: profile.displayName,
             picture: profile.photos?.[0]?.value,
             domain: profile.__json?.hd
         };
-        // TODO: check user against allow list in database
         return done(null, user);
     }
     ));

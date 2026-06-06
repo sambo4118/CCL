@@ -63,3 +63,43 @@ export async function loadBookDetails(bookId) {
     const book = await fetch(`/api/books/${bookId}`).then((responce) => responce.json());
     return book;
 }
+
+export function addChips( items, onClick, onDelete ) {
+    const chipslist = [];
+    for (const item of items) {
+        const chipColumn = document.createElement('div');
+        chipColumn.classList.add('column');
+
+        const chip = document.createElement('p');
+        chip.classList.add('notification', 'is-info', 'has-text-white');
+        chip.style.display = 'inline-flex';
+        chip.style.alignItems = 'center';
+        chip.style.gap = '0.5em';
+        chip.style.padding = '0.25em 0.5em';
+        chip.style.margin = '0';
+        chip.style.width = 'auto';
+        chip.style.lineHeight = '1';
+
+        const deleteButton = document.createElement('button');
+        deleteButton.classList.add('delete');
+        deleteButton.style.position = 'relative';
+        deleteButton.style.top = 'auto';
+        deleteButton.style.right = 'auto';
+        deleteButton.style.insetInlineEnd = 'auto';
+        deleteButton.style.marginLeft = '0.25em';
+
+        deleteButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chip.remove()
+            if (onDelete) onDelete(item);
+        });
+
+        chip.append(item, deleteButton);
+
+        if (onClick) chip.addEventListener('click', () => onClick(item));
+        chipColumn.appendChild(chip);
+
+        chipslist.push(chipColumn);
+    }
+    return chipslist;
+}
