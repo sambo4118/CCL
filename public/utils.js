@@ -57,4 +57,9 @@ export function showWarning(message, onConfirm) {
     }
 
     document.body.appendChild(warningModal);
-};
+}
+
+export async function loadBookDetails(bookId) {
+    const book = await fetch(`/api/books/${bookId}`).then((responce) => responce.json());
+    return book;
+}

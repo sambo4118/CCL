@@ -46,6 +46,8 @@ app.get('/dashboard', (req, res) => sendPage(res, 'dashboard.html'));
 
 app.get('/search', (req, res) => sendPage(res, 'search.html'));
 
+app.get('/books/:id', (req, res) => sendPage(res, 'bookView.html'));
+
 // #endregion
 
 app.listen(PORT, () => {

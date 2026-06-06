@@ -71,8 +71,12 @@ function createBookElement(book) {
     imageContainer.appendChild(img);
     figure.appendChild(imageContainer);
 
-    const content = document.createElement("div");
-    content.className = "media-content";
+    const linkImage = document.createElement("a");
+    linkImage.href = `/books/${book.id}`;
+
+    const linkTitle = document.createElement("a");
+    linkTitle.href = `/books/${book.id}`;
+    linkTitle.className = "media-content";
 
     const topRow = document.createElement("div");
     topRow.className = "level is-mobile mb-2";
@@ -110,13 +114,18 @@ function createBookElement(book) {
 
     const bottomRow = document.createElement("p");
     bottomRow.className = "is-size-7 has-text-grey";
-    bottomRow.textContent = book.publishDate ?? book.published ?? "";
+    const parts = [];
+    if (book.publishDate ?? book.published) parts.push(book.publishDate ?? book.published);
+    if (book.isbn) parts.push(`ISBN: ${book.isbn}`);
+    if (book.id != null) parts.push(`#${book.id}`);
+    bottomRow.textContent = parts.join(" • ");
 
-    content.appendChild(topRow);
-    content.appendChild(bottomRow);
-
-    article.appendChild(figure);
-    article.appendChild(content);
+    linkTitle.appendChild(topRow);
+    linkTitle.appendChild(bottomRow);
+    
+    linkImage.appendChild(figure);
+    article.appendChild(linkImage);
+    article.appendChild(linkTitle);
     
     return article;
 }
