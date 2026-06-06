@@ -1,6 +1,3 @@
-import { showWarning } from '../utils.js'
-import { setupImportBooks } from './uploadBooks.js';
-
 function loadBooks() {
     const modal = document.getElementById('importBooksModal');
     if (!modal) return console.error('Import Books modal not found');
@@ -77,7 +74,9 @@ async function uploadBooks(formData) {
     return res.json();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    setupImportBooks();
-});
-
+export function setupImportBooks() {
+    const loadBooksButton = document.getElementById('importBooksButton');
+    loadBooksButton?.addEventListener('click', () => {
+        loadBooks();
+    });
+}

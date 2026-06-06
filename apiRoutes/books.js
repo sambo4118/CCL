@@ -4,6 +4,7 @@ import { eq, count, like, or } from 'drizzle-orm';
 import { db } from '../database/index.js';
 import { books } from '../database/schema.js';
 import { importBooks } from '../services/importBooks.js';
+import { getBookCover } from '../services/getBookCovers.js';
 
 const booksRoute = express.Router();
 
@@ -24,11 +25,31 @@ booksRoute.post('/import', upload.single('file'), async (req, res) => {
     }
 });
 
+// Columns to return in JSON responses (everything except the cover blob).
+// The blob is served separately via /api/books/:id/cover.
+const bookListColumns = {
+    id: books.id,
+    localNumber: books.localNumber,
+    title: books.title,
+    subtitle: books.subtitle,
+    authorId: books.authorId,
+    author: books.author,
+    call1: books.call1,
+    call2: books.call2,
+    publisher: books.publisher,
+    published: books.published,
+    isbn: books.isbn,
+    bookLocation: books.bookLocation,
+    blurb: books.blurb,
+};
+
+const withCoverUrl = (book) => book && { ...book, coverUrl: `/api/books/${book.id}/cover` };
+
 // GET /api/books — list all books
 booksRoute.get('/', async (req, res) => {
     try {
-        const all = await db.select().from(books);
-        res.json(all);
+        const all = await db.select(bookListColumns).from(books);
+        res.json(all.map(withCoverUrl));
     } catch (error) {
         console.error('Error listing books:', error);
         res.status(500).json({ error: 'Failed to list books' });
@@ -52,7 +73,7 @@ booksRoute.get('/search', async (req, res) => {
     if (!q) return res.status(400).json({ error: 'Missing search query' });
     try {
         const pattern = `%${q}%`;
-        const results = await db.select().from(books).where(
+        const results = await db.select(bookListColumns).from(books).where(
             or(
                 like(books.title, pattern),
                 like(books.author, pattern),
@@ -61,10 +82,34 @@ booksRoute.get('/search', async (req, res) => {
                 like(books.localNumber, pattern),
             )
         );
-        res.json(results);
+        res.json(results.map(withCoverUrl));
     } catch (error) {
         console.error('Error searching books:', error);
         res.status(500).json({ error: 'Failed to search books', details: error.message });
+    }
+});
+
+// GET /api/books/:id/cover — serve book cover image bytes
+booksRoute.get('/:id/cover', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).end();
+    try {
+        const [book] = await db.select().from(books).where(eq(books.id, id));
+        if (!book) return res.status(404).end();
+
+        // Use cached blob, or fetch + store on first request.
+        let buffer = book.coverImage;
+        if (!buffer) {
+            buffer = await getBookCover(book);
+        }
+        if (!buffer) return res.status(404).end();
+
+        res.set('Content-Type', 'image/jpeg');
+        res.set('Cache-Control', 'public, max-age=86400');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Error serving book cover:', error);
+        res.status(500).end();
     }
 });
 
@@ -73,9 +118,9 @@ booksRoute.get('/:id', async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
     try {
-        const [book] = await db.select().from(books).where(eq(books.id, id));
+        const [book] = await db.select(bookListColumns).from(books).where(eq(books.id, id));
         if (!book) return res.status(404).json({ error: 'Book not found' });
-        res.json(book);
+        res.json(withCoverUrl(book));
     } catch (error) {
         console.error('Error fetching book:', error);
         res.status(500).json({ error: 'Failed to fetch book' });
