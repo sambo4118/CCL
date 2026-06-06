@@ -13,14 +13,48 @@ document.addEventListener('DOMContentLoaded', () => {
         d.classList.toggle('is-active');
         });
     });
-    updateAuthSection();
+    initAuthGatedNav();
     populateClassesDropdown();
+
+    // If we got bounced from a protected page, surface why.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('denied') === 'settings') {
+        showAuthWarning('You must be signed in to access Settings.');
+        params.delete('denied');
+        const newSearch = params.toString();
+        const cleanUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+        window.history.replaceState({}, '', cleanUrl);
+    }
 });
 
-async function updateAuthSection() {
+let cachedAuth = null;
 
-    const response = await fetch('/api/me');
-    const data = await response.json();
+async function fetchAuth() {
+    if (cachedAuth) return cachedAuth;
+    try {
+        const response = await fetch('/api/me');
+        cachedAuth = await response.json();
+    } catch (err) {
+        console.error('Failed to fetch auth state:', err);
+        cachedAuth = { loggedIn: false };
+    }
+    return cachedAuth;
+}
+
+async function initAuthGatedNav() {
+    const data = await fetchAuth();
+    updateAuthSection(data);
+
+    const settingsLink = document.getElementById('settingsNavItem');
+    if (settingsLink && !data.loggedIn) {
+        settingsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            showAuthWarning('You must be signed in to access Settings.');
+        });
+    }
+}
+
+function updateAuthSection(data) {
     const user = data.user;
     console.debug('User data:', data);
     if (!data.loggedIn) return;
@@ -52,7 +86,51 @@ async function updateAuthSection() {
     }
     signOutLink.appendChild(userProfile);
     authSection.replaceChildren(signOutLink);
+}
 
+function showAuthWarning(message) {
+    const modal = document.createElement('div');
+    modal.className = 'modal is-active';
+
+    const close = () => modal.remove();
+
+    const background = document.createElement('div');
+    background.className = 'modal-background';
+    background.addEventListener('click', close);
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+
+    const head = document.createElement('header');
+    head.className = 'modal-card-head has-background-warning';
+    const title = document.createElement('p');
+    title.className = 'modal-card-title';
+    title.textContent = 'Authentication required';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete';
+    deleteBtn.setAttribute('aria-label', 'close');
+    deleteBtn.addEventListener('click', close);
+    head.append(title, deleteBtn);
+
+    const body = document.createElement('section');
+    body.className = 'modal-card-body';
+    body.textContent = message;
+
+    const foot = document.createElement('footer');
+    foot.className = 'modal-card-foot';
+    const loginBtn = document.createElement('a');
+    loginBtn.className = 'button is-info has-text-white mr-2';
+    loginBtn.href = '/login';
+    loginBtn.textContent = 'Log in';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', close);
+    foot.append(loginBtn, cancelBtn);
+
+    card.append(head, body, foot);
+    modal.append(background, card);
+    document.body.appendChild(modal);
 }
 
 async function getClassList() {

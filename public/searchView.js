@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("searchInput");
     let timer;
+    let requestId = 0;
     let inflight = false;
     
     const setLoading = (on) => {
@@ -9,22 +10,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
     searchInput.addEventListener("input", (e) => {
         clearTimeout(timer);
-        setLoading(true);
-
         const value = e.target.value;
+
+        // Empty input: bail immediately, no spinner, clear results.
+        if (!value.trim()) {
+            setLoading(false);
+            document.getElementById("searchResults")?.replaceChildren();
+            requestId++; // invalidate any in-flight response
+            return;
+        }
+
+        setLoading(true);
+        const myId = ++requestId;
         timer = setTimeout(async () => {
-            inflight = true;
             try {
                 const books = await searchBooks(value);
+                if (myId !== requestId) return; // stale, ignore
                 displaySearchResults(books);
             } catch (err) {
+                if (myId !== requestId) return;
                 console.error("Error fetching search results:", err);
             } finally {
-                inflight = false;
-                setLoading(false);
+                if (myId === requestId) setLoading(false);
             }
         }, 300);
-    })
+    });
 
 });
 

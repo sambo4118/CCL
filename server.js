@@ -51,7 +51,12 @@ const navbar = fs.readFileSync(path.join(__dirname, 'views', 'navbar.html'), 'ut
 
 app.get('/', (req, res) => sendPage(res, 'index.html'));
 
-app.get('/settings', (req, res) => sendPage(res, 'settings.html'));
+app.get('/settings', (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/?denied=settings');
+    }
+    sendPage(res, 'settings.html');
+});
 
 app.get('/dashboard', (req, res) => sendPage(res, 'dashboard.html'));
 
