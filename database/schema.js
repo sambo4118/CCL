@@ -5,6 +5,7 @@ export const classes = sqliteTable("classes", {
     id: integer("id").primaryKey(),
     name: text("name").notNull(),
     teacherName: text("teacher_name").notNull(),
+    image: blob("image", { mode : "buffer"})
 });
 
 export const students = sqliteTable("students", {
@@ -16,6 +17,8 @@ export const students = sqliteTable("students", {
 export const authors = sqliteTable("authors", {
     id: integer("id").primaryKey(),
     name: text("name").notNull().unique(),
+    age: integer("age"),
+    bookCount: integer("book_count")
 });
 
 export const books = sqliteTable("books", {

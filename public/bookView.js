@@ -1,4 +1,4 @@
-import { loadBookDetails } from "./utils.js";
+import { loadBookDetails, showEditInfoModal } from "./utils.js";
 
 document.addEventListener('DOMContentLoaded', async () => {
     const bookId = window.location.pathname.split('/').pop();
@@ -32,4 +32,12 @@ function getDetailElements() {
     const blurb = document.getElementById('bookBlurb');
     const localnumber = document.getElementById('bookLocalnumber');
     return { cover, title, author, year, publisher, isbn, blurb, localnumber };
+}
+
+function showBookEditModal(book) {
+    const bookFormFields = [
+        {
+            name: "Title"
+        }
+    ]
 }

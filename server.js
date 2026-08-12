@@ -64,6 +64,8 @@ app.get('/search', (req, res) => sendPage(res, 'search.html'));
 
 app.get('/books/:id', (req, res) => sendPage(res, 'bookView.html'));
 
+app.get('/classes/:id', (req, res) => sendPage(res, 'classView.html'));
+
 // #endregion
 
 app.listen(PORT, IP_ADDRESS, () => {

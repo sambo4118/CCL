@@ -1,3 +1,8 @@
+function closeModal(modal) {
+    this.classList.remove('is-active');
+    this.remove();
+}
+
 export function showWarning(message, onConfirm) {
     console.warn(`Warning: ${message}`);
     const warningModal = document.createElement('div');
@@ -41,20 +46,15 @@ export function showWarning(message, onConfirm) {
     confirmButton.textContent = 'Confirm';
     confirmButton.addEventListener('click', () => {
         onConfirm();
-        closeModal();
+        closeModal(warningModal);
     });
     modalFooter.appendChild(confirmButton);
 
     const cancelButton = document.createElement('button');
     cancelButton.classList.add('button');
     cancelButton.textContent = 'Cancel';
-    cancelButton.addEventListener('click', closeModal);
+    cancelButton.addEventListener('click', closeModal(warningModal));
     modalFooter.appendChild(cancelButton);
-
-    function closeModal() {
-        warningModal.classList.remove('is-active');
-        warningModal.remove();
-    }
 
     document.body.appendChild(warningModal);
 }
@@ -62,6 +62,11 @@ export function showWarning(message, onConfirm) {
 export async function loadBookDetails(bookId) {
     const book = await fetch(`/api/books/${bookId}`).then((responce) => responce.json());
     return book;
+}
+
+export async function loadClassDetails(classId) {
+    const targetClass = await fetch(`/api/classes/${classId}`).then((responce) => responce.json());
+    return targetClass;
 }
 
 export function addChips( items, onClick, onDelete ) {
@@ -102,4 +107,97 @@ export function addChips( items, onClick, onDelete ) {
         chipslist.push(chipColumn);
     }
     return chipslist;
+}
+
+export class Modal
+{ 
+    constructor({mainColorBulmaVariable, successButtonText, title, onConfirm}) {
+
+        if (!mainColorBulmaVariable) mainColorBulmaVariable = "success";
+        
+        this.configKeys = [];
+        
+        this.isOpen = false;
+        this.element = document.getElementById('edit-modal');
+        this.background = document.getElementById('modal-background');
+        this.head = document.getElementById('modal-head');
+        this.title = document.getElementById('modal-title');
+        this.closeButton = document.getElementById('modal-close-button');
+        this.body = document.getElementById('modal-body');
+        this.foot = document.getElementById('modal-foot');
+        this.footButtons = document.getElementById('modal-foot-buttons');
+        this.successButton = document.getElementById('modal-success-button');
+        this.dangerButton = document.getElementById('modal-danger-button');
+
+        this.head.classList.add(`has-background-${mainColorBulmaVariable}`);
+        this.title.textContent = title ?? "title no specified";
+        this.successButton.classList.add(`is-${mainColorBulmaVariable}`);
+        this.successButton.textContent = successButtonText ?? "Save";
+
+        if (!onConfirm) (onConfirm = () => { return this.getAllFields(); })
+        this.onConfirm
+
+        this.successButton.addEventListener('click', () => {
+            this.onConfirm();
+            this.close()
+        })
+
+        this.dangerButton.addEventListener('click', () => {
+            this.close()
+        })
+
+        this.fields = {};
+        this.labels = {};
+        this.controlDivs = {};
+        this.inputs = {};
+    }
+
+    open() {
+        if (this.isOpen) return false;
+        this.isOpen = true;
+        this.element.classList.add('is-active');
+        return true;
+    }
+
+    close() {
+        if (!this.isOpen) return false;
+        this.isOpen = false;
+        this.element.classList.remove('is-active');
+        return true;
+    }
+    
+    // Config is type {elementNameKey: {label: 'text', type: 'input type', color: 'bulma color', placeholder: 'input placeholder text'}, ...}
+    addFields(config) {
+        
+        this.configKeys.push(...Object.keys(config));
+
+        Object.entries(config).forEach(([key, data]) => {
+
+            this.fields[key] = document.createElement('div');
+            this.fields[key].className = 'field';
+
+            this.labels[key] = document.createElement('div');
+            this.labels[key].textContent = data.label;
+            this.fields[key].appendChild(this.labels[key]);
+
+            this.controlDivs[key] = document.createElement('div');
+            this.fields[key].appendChild(this.controlDivs[key]);
+
+            this.inputs[key] = document.createElement('input');
+            this.inputs[key].className = `is-${data.color} input`;
+            this.inputs[key].type = data.type;
+            this.inputs[key].placeholder = data.placeholder;
+            
+            this.controlDivs[key].appendChild(this.inputs[key]);
+            this.body.appendChild(this.fields[key]);
+        });
+    }
+
+    getAllFields() {
+        const values = {};
+        Object.entries(this.inputs).forEach(([key, input]) => {
+            values[key] = input.value;
+        });
+        return values;
+    }
 }

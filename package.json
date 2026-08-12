@@ -9,7 +9,7 @@
     "watch-sass": "npm run build-bulma -- --watch",
     "start": "node server.js",
     "dev": "node --watch-path=./server.js --watch-path=./views --watch-path=./public --watch-path=./services server.js",
-    "migrate": "drizzle-kit"
+    "migrate": "drizzle-kit migrate --config drizzle.config.js"
   },
   "repository": {
     "type": "git",

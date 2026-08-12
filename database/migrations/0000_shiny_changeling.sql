@@ -8,7 +8,9 @@ CREATE TABLE `allowed_emails` (
 CREATE UNIQUE INDEX `allowed_emails_email_unique` ON `allowed_emails` (`email`);--> statement-breakpoint
 CREATE TABLE `authors` (
 	`id` integer PRIMARY KEY NOT NULL,
-	`name` text NOT NULL
+	`name` text NOT NULL,
+	`age` integer,
+	`book_count` integer
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `authors_name_unique` ON `authors` (`name`);--> statement-breakpoint
@@ -43,7 +45,8 @@ CREATE TABLE `checkouts` (
 CREATE TABLE `classes` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
-	`teacher_name` text NOT NULL
+	`teacher_name` text NOT NULL,
+	`image` blob
 );
 --> statement-breakpoint
 CREATE TABLE `students` (
