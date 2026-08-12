@@ -1,3 +1,4 @@
+import object from 'nunjucks/src/object.js';
 import { loadClassDetails, Modal } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -51,7 +52,7 @@ function handleClassPhoto(classPhotoContainer, classPhoto, image) {
 function buildClassEditModal(targetClass) {
     targetClass = targetClass.class ?? targetClass;
 
-    const modal = new Modal({ title:targetClass.name, mainColorBulmaVariable:'info', successButtonText:'Save' });
+    const modal = new Modal({ title:targetClass.name, mainColorBulmaVariable:'info', successButtonText:'Save', onConfirm: ((modal) => updateClassInfo(targetClass, modal)) });
     
     const config = {
         className: {label:'class name:', type: 'text', placeholder: 'Input class name...', color: 'info'},
@@ -62,4 +63,12 @@ function buildClassEditModal(targetClass) {
     modal.addFields(config);
 
     return modal;
+}
+
+function updateClassInfo(targetClass, modal) {
+    const className = modal.getField('className');
+    const teacherName = modal.getField('teacherName');
+    const classPhoto = modal.getField('classPhoto');
+    
+    console.log (className, teacherName, classPhoto);
 }

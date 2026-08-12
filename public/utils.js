@@ -134,17 +134,16 @@ export class Modal
         this.successButton.classList.add(`is-${mainColorBulmaVariable}`);
         this.successButton.textContent = successButtonText ?? "Save";
 
-        if (!onConfirm) (onConfirm = () => { return this.getAllFields(); })
-        this.onConfirm
+        this.onConfirm() = onConfirm(this);
 
         this.successButton.addEventListener('click', () => {
             this.onConfirm();
-            this.close()
-        })
+            this.close();
+        });
 
-        this.dangerButton.addEventListener('click', () => {
-            this.close()
-        })
+        this.dangerButton.addEventListener('click', () => this.close());
+
+        this.closeButton.addEventListener('click', () => this.close());
 
         this.fields = {};
         this.labels = {};
@@ -153,17 +152,11 @@ export class Modal
     }
 
     open() {
-        if (this.isOpen) return false;
-        this.isOpen = true;
         this.element.classList.add('is-active');
-        return true;
     }
 
     close() {
-        if (!this.isOpen) return false;
-        this.isOpen = false;
         this.element.classList.remove('is-active');
-        return true;
     }
     
     // Config is type {elementNameKey: {label: 'text', type: 'input type', color: 'bulma color', placeholder: 'input placeholder text'}, ...}
@@ -199,5 +192,9 @@ export class Modal
             values[key] = input.value;
         });
         return values;
+    }
+
+    getField(fieldKey) {
+        return this.inputs[fieldKey];
     }
 }
