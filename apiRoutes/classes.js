@@ -41,6 +41,7 @@ classesRoute.get('/:id', async (req, res) => {
                 name: classes.name,
                 teacherName: classes.teacherName,
                 studentCount: count(students.id),
+                classPhoto: classes.image,
             })
             .from(classes)
             .leftJoin(students, eq(students.classId, classes.id))
@@ -69,6 +70,10 @@ classesRoute.get('/:id', async (req, res) => {
     } catch (error) {
         console.error('Error fetching students in class:', error);
         return res.status(500).json({ error: 'Failed to fetch students in class' });
+    }
+    
+    if (classInfo.image) {
+        classInfo.image = `data:image/jpeg;base64,${classInfo.image.toString('base64')}`;
     }
 
     res.json({ class: classInfo, students: studentsInClass });

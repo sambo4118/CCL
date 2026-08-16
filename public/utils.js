@@ -134,10 +134,8 @@ export class Modal
         this.successButton.classList.add(`is-${mainColorBulmaVariable}`);
         this.successButton.textContent = successButtonText ?? "Save";
 
-        this.onConfirm() = onConfirm(this);
-
         this.successButton.addEventListener('click', () => {
-            this.onConfirm();
+            onConfirm(this);
             this.close();
         });
 

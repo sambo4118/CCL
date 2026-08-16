@@ -1,4 +1,3 @@
-import object from 'nunjucks/src/object.js';
 import { loadClassDetails, Modal } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -9,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const modal = buildClassEditModal(targetClass);
         displayClassDetails(targetClass);
         classEditButton.addEventListener('click', () => modal.open());
+        console.log(targetClass)
     } catch (err) {
         console.error(`failed to load class: ${classId}`, err)
     }
@@ -23,7 +23,8 @@ function displayClassDetails(targetClass) {
     teacherName.textContent = targetClass.teacherName ?? console.log(`${targetClass.className ??( 'Class: ' + targetClass.classId ) } Missing Teacher Name`);
     studentCount.textContent = `student #: ${targetClass.studentCount}` ?? console.log('missing student count' , targetClass.studentCount);
     if (gradeLevel) gradeLevel.textContent = `grade ${targetClass.gradeLevel}`;
-    handleClassPhoto(classPhotoContainer, classPhoto, targetClass.image)
+    handleClassPhoto(classPhotoContainer, classPhoto, targetClass.classPhoto);
+    return true;
 }
 
 function getDetailElements() {
@@ -45,8 +46,13 @@ function handleClassPhoto(classPhotoContainer, classPhoto, image) {
         return false;
     }
 
+    const uint8Array = new Uint8Array(image.data);
+    const blob = new Blob([uint8Array], { type: 'image/jpeg' });
+    const imageUrl = URL.createObjectURL(blob);
+    
+    
     classPhotoContainer.style.display = 'block';
-    classPhoto.src = image;
+    classPhoto.src = imageUrl;
 }
 
 function buildClassEditModal(targetClass) {
@@ -65,10 +71,31 @@ function buildClassEditModal(targetClass) {
     return modal;
 }
 
-function updateClassInfo(targetClass, modal) {
-    const className = modal.getField('className');
-    const teacherName = modal.getField('teacherName');
-    const classPhoto = modal.getField('classPhoto');
+async function updateClassInfo(targetClass, modal) {
+    const className = modal.getField('className').value;
+    const teacherName = modal.getField('teacherName').value;
+    const classPhoto = modal.getField('classPhoto').files[0];
+    const classId = targetClass.id
+
+    const formData = new FormData();
     
-    console.log (className, teacherName, classPhoto);
+    if (className) formData.append('name', className);
+    if (teacherName) formData.append('teacherName', teacherName);
+    if (classPhoto) formData.append('image', classPhoto);
+
+    const responce = await fetch(`/api/classes/${classId}`, {
+        method: 'PUT',
+        body: formData,
+        credentials: 'include'
+    });
+
+    if (!responce.ok) {
+        const errorData = await responce.json();
+        console.error('request error', errorData ?? '');
+    }
+
+    console.warn(responce, classId)
+    targetClass = await loadClassDetails(classId);
+    return displayClassDetails(targetClass);
+
 }
