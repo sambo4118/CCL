@@ -1,0 +1,232 @@
+{
+  "workspace": [
+    {
+      "id": 42981592508232,
+      "text": "add the logo to the webpage icon",
+      "completed": false,
+      "creationDate": "2026-08-22T00:32:39.364Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 348639690966414,
+      "text": "welcome page",
+      "completed": false,
+      "creationDate": "2026-08-22T00:31:43.853Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 708550036195171,
+      "text": "bashboard",
+      "completed": false,
+      "creationDate": "2026-08-22T00:31:38.644Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 716548746139361,
+      "text": "global not authorized warnings/lockout",
+      "completed": false,
+      "creationDate": "2026-08-22T00:31:19.953Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 483993421967157,
+      "text": "author api routes",
+      "completed": false,
+      "creationDate": "2026-08-22T00:24:12.968Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 818188309213718,
+      "text": "allow the teachers to be users to",
+      "completed": false,
+      "creationDate": "2026-08-22T00:24:04.144Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 457477984378992,
+      "text": "add all database stuff to the search page not just the books",
+      "completed": false,
+      "creationDate": "2026-08-21T23:46:45.091Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 155240313999949,
+      "text": "author view pages",
+      "completed": false,
+      "creationDate": "2026-08-21T23:46:32.782Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 598418970351083,
+      "text": "student info pages",
+      "completed": false,
+      "creationDate": "2026-08-21T23:40:03.880Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 845475858633879,
+      "text": "students api routes",
+      "completed": false,
+      "creationDate": "2026-08-21T23:39:57.328Z",
+      "isMarkdown": false,
+      "isNote": false
+    },
+    {
+      "id": 281575689938773,
+      "text": "checkouts api routes",
+      "completed": false,
+      "creationDate": "2026-08-21T23:39:28.250Z",
+      "isMarkdown": false,
+      "isNote": false
+    }
+  ],
+  "files": {
+    "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\bookView.js": [
+      {
+        "id": 760134835187692,
+        "text": "auto complete author name and link to author database entry",
+        "completed": false,
+        "creationDate": "2026-08-22T00:21:29.205Z",
+        "isMarkdown": false,
+        "isNote": false
+      },
+      {
+        "id": 861498788190122,
+        "text": "auto fill from ISBN",
+        "completed": false,
+        "creationDate": "2026-08-21T23:41:03.417Z",
+        "isMarkdown": false,
+        "isNote": false
+      }
+    ],
+    "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\classView.js": [
+      {
+        "id": 332828623197577,
+        "text": "allow the saving of empty fields so that data can be removed",
+        "completed": false,
+        "creationDate": "2026-08-22T00:23:48.521Z",
+        "isMarkdown": false,
+        "isNote": false
+      },
+      {
+        "id": 543545324002875,
+        "text": "autofill info in modal",
+        "completed": false,
+        "creationDate": "2026-08-21T23:40:33.613Z",
+        "isMarkdown": false,
+        "isNote": false
+      },
+      {
+        "id": 868318230403513,
+        "text": "student chips in edit modal",
+        "completed": false,
+        "creationDate": "2026-08-21T23:40:25.797Z",
+        "isMarkdown": false,
+        "isNote": false
+      }
+    ],
+    "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\frontpage.js": [
+      {
+        "id": 36269691002744,
+        "text": "recent checkouts",
+        "completed": false,
+        "creationDate": "2026-08-22T00:32:15.168Z",
+        "isMarkdown": false,
+        "isNote": false
+      },
+      {
+        "id": 746690761849324,
+        "text": "most checked out book",
+        "completed": false,
+        "creationDate": "2026-08-22T00:32:06.765Z",
+        "isMarkdown": false,
+        "isNote": false
+      }
+    ],
+    "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\studentView.js": [
+      {
+        "id": 715621507339452,
+        "text": "display checkouts",
+        "completed": false,
+        "creationDate": "2026-08-22T00:20:46.178Z",
+        "isMarkdown": false,
+        "isNote": false
+      },
+      {
+        "id": 256089816088599,
+        "text": "allow returns",
+        "completed": false,
+        "creationDate": "2026-08-22T00:20:43.166Z",
+        "isMarkdown": false,
+        "isNote": false
+      },
+      {
+        "id": 799470663951757,
+        "text": "allow checkouts",
+        "completed": false,
+        "creationDate": "2026-08-22T00:20:40.472Z",
+        "isMarkdown": false,
+        "isNote": false
+      },
+      {
+        "id": 271659917233776,
+        "text": "build student edit modal",
+        "completed": false,
+        "creationDate": "2026-08-22T00:20:36.797Z",
+        "isMarkdown": false,
+        "isNote": false
+      },
+      {
+        "id": 588642991737331,
+        "text": "load student info",
+        "completed": false,
+        "creationDate": "2026-08-22T00:20:30.368Z",
+        "isMarkdown": false,
+        "isNote": false
+      }
+    ]
+  },
+  "filesDataPaths": {
+    "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\bookView.js": {
+      "absPaths": [
+        "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\bookView.js"
+      ],
+      "relPaths": [
+        "public/bookView.js"
+      ]
+    },
+    "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\classView.js": {
+      "absPaths": [
+        "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\classView.js"
+      ],
+      "relPaths": [
+        "public/classView.js"
+      ]
+    },
+    "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\frontpage.js": {
+      "absPaths": [
+        "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\frontpage.js"
+      ],
+      "relPaths": [
+        "public/frontpage.js"
+      ]
+    },
+    "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\studentView.js": {
+      "absPaths": [
+        "c:\\Users\\hoelk\\Documents\\CCL\\cclib\\public\\studentView.js"
+      ],
+      "relPaths": [
+        "public/studentView.js"
+      ]
+    }
+  }
+}
