@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CCL</title>
+    <link rel="stylesheet" href="/css/my-bulma-project.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/navbar.js"></script>
+    <script type="module" src="/studentView.js"></script>
+  </head>
+  <body>
+    <div>
+        <!-- NAVBAR -->
+        <div class="container mt-5">
+            <div class="box has-background-primary m-2">
+                <article class="media">
+                    <figure class="media-left">
+                        <p class="image is-2by3" style="width: 192px; height: 256px; object-fit: fill; loading: lazy; border-radius: 0.5rem;">
+                            <img src="/images/128x128.png" id="studentPhoto" alt="Student Photo">
+                        </p>
+                    </figure>
+                    <div class="media-content">
+                        <div class="content">
+                            <div class="columns">
+                                <div class="column">
+                                    <p class="title is-2" id="studentName">Student Name</p>
+                                    <p class="subtitle is-4 mb-5" id="studentGrade">Grade / Class Name</p>
+                                    <p class="mt-2 mb-2" id="studentNotes">Student notes, accommodations, or bio information can go right here. Lorem ipsum dolor sit amet consectetur adipisicing elit.</p>
+                                </div>
+                                <div class="column is-4">
+                                    <div class="is-flex is-justify-content-flex-end mb-2">
+                                        <button class="button" id="editStudentButton">
+                                            <span class="icon"><i class="fas fa-solid fa-pen-to-square"></i></span>
+                                        </button>
+                                    </div>
+                                    <p id="studentEnrollmentYear" class="is-italic has-text-right mt-2">date enrolled</p>
+                                    <p id="studentHomeroom" class="is-italic has-text-right">teacher name</p>
+                                    <p id="studentIdNumber" class="is-italic has-text-right">student Id number</p>
+                                    <p id="studentContact" class="is-italic has-text-right">parent phone number</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </div>
+
+        <div class="container mt-5">
+            <!-- checkout list -->
+             
+        </div>
+    </body>
+    <div class="modal" id="editBookInfoModal">
+    
+    
+    
+    </div>
+</html>

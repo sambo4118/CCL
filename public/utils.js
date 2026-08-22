@@ -60,7 +60,10 @@ export function showWarning(message, onConfirm) {
 }
 
 export async function loadBookDetails(bookId) {
-    const book = await fetch(`/api/books/${bookId}`).then((responce) => responce.json());
+    const responce = await fetch(`/api/books/${bookId}`)
+    if (!responce.ok) { console.error('fetch error:', responce.json()); return false; }
+    
+    const book = responce.json();
     return book;
 }
 
@@ -109,44 +112,73 @@ export function addChips( items, onClick, onDelete ) {
     return chipslist;
 }
 
-export class Modal
-{ 
+export class Modal { 
     constructor({mainColorBulmaVariable, successButtonText, title, onConfirm}) {
 
         if (!mainColorBulmaVariable) mainColorBulmaVariable = "success";
         
         this.configKeys = [];
-        
         this.isOpen = false;
-        this.element = document.getElementById('edit-modal');
-        this.background = document.getElementById('modal-background');
-        this.head = document.getElementById('modal-head');
-        this.title = document.getElementById('modal-title');
-        this.closeButton = document.getElementById('modal-close-button');
-        this.body = document.getElementById('modal-body');
-        this.foot = document.getElementById('modal-foot');
-        this.footButtons = document.getElementById('modal-foot-buttons');
-        this.successButton = document.getElementById('modal-success-button');
-        this.dangerButton = document.getElementById('modal-danger-button');
+        
+        // 1. Create the main modal container
+        this.element = document.createElement('div');
+        this.element.className = 'modal';
 
+        // 2. Inject the HTML
+        this.element.innerHTML = `
+            <div class="modal-background"></div>
+            <div class="modal-card">
+                <header class="modal-card-head">
+                    <p class="modal-card-title">Modal title</p>
+                    <button class="delete" aria-label="close"></button>
+                </header>
+                <section class="modal-card-body">
+                </section>
+                <footer class="modal-card-foot">
+                    <div class="buttons">
+                        <button class="button save-btn">Save changes</button>
+                        <button class="button cancel-btn">Cancel</button>
+                    </div>
+                </footer>
+            </div>
+        `;
+
+        // 3. Append the new modal to the page body so it exists in the DOM
+        document.body.appendChild(this.element);
+
+        // 4. Map properties to the newly created DOM elements
+        this.background = this.element.querySelector('.modal-background');
+        this.head = this.element.querySelector('.modal-card-head');
+        this.title = this.element.querySelector('.modal-card-title');
+        this.closeButton = this.element.querySelector('.delete');
+        this.body = this.element.querySelector('.modal-card-body');
+        this.foot = this.element.querySelector('.modal-card-foot');
+        this.footButtons = this.element.querySelector('.buttons');
+        this.successButton = this.element.querySelector('.save-btn');
+        this.dangerButton = this.element.querySelector('.cancel-btn');
+
+        // 5. Apply Bulma variables and parameters
         this.head.classList.add(`has-background-${mainColorBulmaVariable}`);
-        this.title.textContent = title ?? "title no specified";
+        this.title.textContent = title ?? "Title not specified";
         this.successButton.classList.add(`is-${mainColorBulmaVariable}`);
         this.successButton.textContent = successButtonText ?? "Save";
 
+        // 6. Bind Event Listeners
         this.successButton.addEventListener('click', () => {
-            onConfirm(this);
+            if (onConfirm) onConfirm(this);
             this.close();
         });
 
         this.dangerButton.addEventListener('click', () => this.close());
-
         this.closeButton.addEventListener('click', () => this.close());
+        this.background.addEventListener('click', () => this.close());
 
+        // 7. Field tracking setup
         this.fields = {};
         this.labels = {};
         this.controlDivs = {};
         this.inputs = {};
+        this.values = {};
     }
 
     open() {
@@ -175,9 +207,10 @@ export class Modal
             this.fields[key].appendChild(this.controlDivs[key]);
 
             this.inputs[key] = document.createElement('input');
-            this.inputs[key].className = `is-${data.color} input`;
+            this.inputs[key].className = `is-${data.color ?? this.mainColorBulmaVariable} input`;
             this.inputs[key].type = data.type;
             this.inputs[key].placeholder = data.placeholder;
+            if (data.value) this.inputs[key].value = data.value;
             
             this.controlDivs[key].appendChild(this.inputs[key]);
             this.body.appendChild(this.fields[key]);

@@ -24,6 +24,25 @@ studentsRoute.post('/import', upload.single('file'), async (req, res) => {
     }
 });
 
+// GET /api/students/:id — get all info on student with Id
+studentsRoute.get('/:id', async (req, res) => {
+    const studentId = req.params.id;
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    let studentInfo;
+    
+    try {
+        studentInfo = await db
+            .select({
+                id: students.id,
+                name: students.name,
+                className: students.className,
+            })
+    } catch (error) {
+        return res.status(404).json({ error: 'Student Not Found' });
+    }
+
+});
+
 // GET /api/students — list all students with their class name
 studentsRoute.get('/', async (req, res) => {
     try {

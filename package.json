@@ -8,7 +8,7 @@
     "build-bulma": "sass --load-path=node_modules my-bulma-project.scss public/css/my-bulma-project.css",
     "watch-sass": "npm run build-bulma -- --watch",
     "start": "node server.js",
-    "dev": "node --watch-path=./server.js --watch-path=./views --watch-path=./public --watch-path=./services server.js",
+    "dev": "node --watch-path=./server.js --watch-path=./views --watch-path=./public --watch-path=./services server.js --watch-path./apiRoutes",
     "migrate": "drizzle-kit migrate --config drizzle.config.js"
   },
   "repository": {

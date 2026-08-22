@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('Front page script loaded');
     const subtitleElement = document.getElementById('subtitle');
     if (!subtitleElement) return;
 
