@@ -66,7 +66,7 @@ function buildClassEditModal(targetClass) {
     const config = {
         className: {label:'class name:', type: 'text', placeholder: 'Input class name...', color: 'primary', value: targetClass.className},
         teacherName: {label:'teacher name:', type: 'text', placeholder: 'Input teacher name...', color: 'primary', value: targetClass.teacherName},
-        classPhoto: {label:'class photo:', type: 'file', placeholder: 'Select class photo...', color: 'primary', value: targetClass.image ?? null}
+        classPhoto: { label: 'class photo:', type: 'file', placeholder: 'Select class photo...', color: 'primary', value: targetClass.image ?? null },
     };
 
     modal.addFields(config);

@@ -50,10 +50,12 @@ studentsRoute.get('/:id', async (req, res) => {
 
 });
 
-// GET /api/students — list all students with their class name
+// GET /api/students — list all students or serach them by peram
 studentsRoute.get('/', async (req, res) => {
+const searchQuery = req.query.search;
+    
     try {
-        const rows = await db
+        let queryBuilder = db
             .select({
                 id: students.id,
                 name: students.name,
@@ -62,6 +64,14 @@ studentsRoute.get('/', async (req, res) => {
             })
             .from(students)
             .leftJoin(classes, eq(students.classId, classes.id));
+
+        if (searchQuery) {
+            queryBuilder = queryBuilder
+                .where(ilike(students.name, `%${searchQuery}%`))
+                .limit(8);
+        }
+
+        const rows = await queryBuilder;
         res.json(rows);
     } catch (error) {
         console.error('Error listing students:', error);

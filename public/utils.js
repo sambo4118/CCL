@@ -179,6 +179,7 @@ export class Modal {
         this.controlDivs = {};
         this.inputs = {};
         this.values = {};
+        this.hiddenValues = {};
     }
 
     open() {
@@ -196,25 +197,39 @@ export class Modal {
 
         Object.entries(config).forEach(([key, data]) => {
 
-            this.fields[key] = document.createElement('div');
-            this.fields[key].className = 'field';
-
-            this.labels[key] = document.createElement('div');
-            this.labels[key].textContent = data.label;
-            this.fields[key].appendChild(this.labels[key]);
-
-            this.controlDivs[key] = document.createElement('div');
-            this.fields[key].appendChild(this.controlDivs[key]);
-
-            this.inputs[key] = document.createElement('input');
-            this.inputs[key].className = `is-${data.color ?? this.mainColorBulmaVariable} input`;
-            this.inputs[key].type = data.type;
-            this.inputs[key].placeholder = data.placeholder;
-            if (data.value) this.inputs[key].value = data.value;
+            const fieldContainer = this._createFieldContainer(data.label);
+            const controlDiv = fieldContainer.querySelector('.control')
             
-            this.controlDivs[key].appendChild(this.inputs[key]);
-            this.body.appendChild(this.fields[key]);
+            switch (data.type) {
+                default:
+                    this._renderStandardField(key, data, controlDiv);
+                    break;
+                    
+            }
+
+            this.body.appendChild(fieldContainer);
         });
+    }
+
+    _createFieldContainer(labelText) {
+        const field = document.createElement('div');
+        field.className = 'field';
+        field.innerHTML = `
+            <label class="label">${labelText}</label>
+            <div class="control"></div>
+        `;
+        return field;
+    }
+
+    _renderStandardField(key, data, controlDiv) {
+        const input = document.createElement('input');
+        input.className = `input is-${data.color ?? this.mainColorBulmaVariable}`;
+        input.type = data.type ?? 'text';
+        input.placeholder = data.placeholder ?? '';
+        if (data.value) input.value = data.value;
+
+        controlDiv.appendChild(input);
+        this.inputs[key] = input; // Keep reference for retrieval
     }
 
     getAllFields() {
@@ -228,4 +243,13 @@ export class Modal {
     getField(fieldKey) {
         return this.inputs[fieldKey];
     }
+  
+    _debounce(fn, delay = 300) {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fn(...args), delay);
+        };
+    }
+    
 }
