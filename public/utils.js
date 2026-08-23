@@ -1,60 +1,45 @@
-function closeModal(modal) {
-    this.classList.remove('is-active');
-    this.remove();
-}
-
-export function showWarning(message, onConfirm) {
+export function showWarning(message, onConfirm, onCancel = null) {
     console.warn(`Warning: ${message}`);
+
     const warningModal = document.createElement('div');
     warningModal.classList.add('modal', 'is-active');
-    
-    const modalBackground = document.createElement('div');
-    modalBackground.classList.add('modal-background');
-    modalBackground.addEventListener('click', closeModal);
-    warningModal.appendChild(modalBackground);
+    warningModal.innerHTML = `
+        <div class="modal-background"> </div>
+        <div class="modal-card">
+            <header class="modal-card-head has-background-danger">
+                <p class="modal-card-title">Warning</p>
+                <button class="delete" aria-label="close"></button>
+            </header>
+            <section class="modal-card-body">
+                ${message}
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-danger conf-btn">Confirm</button>
+                <button class="button canc-btn ml-2">Cancel</button>
+            </footer>
+        </div>
+    `    
+    const closeModal = () => {
+        warningModal.classList.remove('is-active');
+        warningModal.remove()
+    }
 
-    const modalCard = document.createElement('div');
-    modalCard.classList.add('modal-card');
-    modalBackground.appendChild(modalCard);
-    
-    const modalHeader = document.createElement('header');
-    modalHeader.classList.add('modal-card-header', 'has-background-danger');
-    modalCard.appendChild(modalHeader);
+    if (!onCancel) onCancel = () => closeModal;
 
-    const modalTitle = document.createElement('p');
-    modalTitle.classList.add('modal-card-title');
-    modalTitle.textContent = 'Warning';
-    modalHeader.appendChild(modalTitle);
+    warningModal.querySelectorAll('.modal-background, .modal-close, .modal-card-head .delete, .modal-card-foot .button').forEach((close) => {
+        close.addEventListener('click', closeModal);
+    }) 
 
-    const closeButton = document.createElement('button');
-    closeButton.classList.add('delete');
-    closeButton.setAttribute('aria-label', 'close');
-    closeButton.addEventListener('click', closeModal);
-    modalHeader.appendChild(closeButton);
+    const modalFooter = warningModal.querySelector('.modal-card-foot')
 
-    const modalBody = document.createElement('section');
-    modalBody.classList.add('modal-card-body');
-    modalBody.innerHTML = `${message}`;
-    modalCard.appendChild(modalBody);
-
-    const modalFooter = document.createElement('footer');
-    modalFooter.classList.add('modal-card-foot');
-    modalCard.appendChild(modalFooter);
-
-    const confirmButton = document.createElement('button');
-    confirmButton.classList.add('button', 'is-danger');
-    confirmButton.textContent = 'Confirm';
+    const confirmButton = modalFooter.querySelector('.conf-btn');
     confirmButton.addEventListener('click', () => {
         onConfirm();
-        closeModal(warningModal);
+        closeModal;
     });
-    modalFooter.appendChild(confirmButton);
 
-    const cancelButton = document.createElement('button');
-    cancelButton.classList.add('button');
-    cancelButton.textContent = 'Cancel';
-    cancelButton.addEventListener('click', closeModal(warningModal));
-    modalFooter.appendChild(cancelButton);
+    const cancelButton = modalFooter.querySelector('.canc-btn');;
+    cancelButton.addEventListener('click', onCancel);
 
     document.body.appendChild(warningModal);
 }
@@ -72,11 +57,42 @@ export async function loadClassDetails(classId) {
     return targetClass;
 }
 
-export function addChips( items, onClick, onDelete ) {
-    const chipslist = [];
-    for (const item of items) {
+export class Chips {
+    constructor({
+        container,
+        items = [],
+        labelKey = 'label',
+        onClick = null,
+        onDelete = null,
+        className = 'columns mb-5 is-multiline is-mobile' }) {
+        
+        this.containerParent = typeof container === 'string' ? document.querySelector(container) : container; // resolve from string name of container
+
+        this.container = document.createElement('div');
+        this.container.className = className;
+        this.containerParent.appendChild(this.container);
+
+        this.onClick = onClick
+        this.onDelete = onDelete
+        this.items = [];
+        this.labelKey = labelKey;
+        this.className = className;
+
+        if (items.length) {
+            this.addItems(items);
+        }
+        
+    }
+
+    createChipElement(item) {
+
+        const isObject = item !== null && typeof item === 'object';
+        const displayLabel = isObject 
+            ? (typeof this.labelKey === 'function' ? this.labelKey(item) : item[this.labelKey] ?? JSON.stringify(item))
+            : item;
+        
         const chipColumn = document.createElement('div');
-        chipColumn.classList.add('column');
+        chipColumn.classList.add('column', 'is-narrow');
 
         const chip = document.createElement('p');
         chip.classList.add('notification', 'is-info', 'has-text-white');
@@ -96,27 +112,60 @@ export function addChips( items, onClick, onDelete ) {
         deleteButton.style.insetInlineEnd = 'auto';
         deleteButton.style.marginLeft = '0.25em';
 
-        deleteButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            chip.remove()
-            if (onDelete) onDelete(item);
+        deleteButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (this.onDelete) this.onDelete({ item, chip });
         });
 
-        chip.append(item, deleteButton);
+        chip.append(String(displayLabel), deleteButton);
 
-        if (onClick) chip.addEventListener('click', () => onClick(item));
+        if (this.onClick) chip.addEventListener('click', () => this.onClick(item));
         chipColumn.appendChild(chip);
 
-        chipslist.push(chipColumn);
+        return chipColumn;
     }
-    return chipslist;
+
+    addItem(item) {
+        this.items.push(item);
+        const element = this.createChipElement(item);
+        if (this.container) {
+            this.container.appendChild(element)
+        }
+        return element;
+    }
+
+    addItems(items) {
+        return items.map((item) => this.addItem(item));
+    }
+
+    removeItem(item, element) {
+        this.items = this.items.filter((i) => i !== item);
+        if (element) {
+            element.remove();
+        }
+        if (this.onDelete) {
+            this.onDelete(item);
+        }
+    }
+
+    clear() {
+        this.items = [];
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
+    }
+
+    getItems() {
+        return [...this.items];
+    }
 }
 
 export class Modal { 
     constructor({mainColorBulmaVariable, successButtonText, title, onConfirm}) {
 
         if (!mainColorBulmaVariable) mainColorBulmaVariable = "success";
-        
+
         this.configKeys = [];
         this.isOpen = false;
         
@@ -194,34 +243,46 @@ export class Modal {
     addFields(config) {
         
         this.configKeys.push(...Object.keys(config));
-
         Object.entries(config).forEach(([key, data]) => {
 
-            const fieldContainer = this._createFieldContainer(data.label);
-            const controlDiv = fieldContainer.querySelector('.control')
+            const { fieldContainer, controlDiv } = this._createFieldContainer(data.label);
             
             switch (data.type) {
+                case 'search':
+                    this._renderSearchField(key, data, controlDiv);
+                    break;
+                case 'chips':
+                    this._renderChipsField(key, data, controlDiv);
                 default:
                     this._renderStandardField(key, data, controlDiv);
                     break;
                     
             }
-
             this.body.appendChild(fieldContainer);
         });
     }
 
-    _createFieldContainer(labelText) {
+    _createFieldContainer(labelText = null) {
         const field = document.createElement('div');
         field.className = 'field';
-        field.innerHTML = `
-            <label class="label">${labelText}</label>
-            <div class="control"></div>
-        `;
-        return field;
-    }
 
+        if (labelText) {
+            const label = document.createElement('label');
+            label.textContent = labelText;
+            field.appendChild(label);
+        }
+
+        const control = document.createElement('div')
+        control.className = 'control'
+
+        field.appendChild(control)
+
+        return { fieldContainer: field, controlDiv: control };
+    }
+    
+    // types = text, password, email, tel: no special data
     _renderStandardField(key, data, controlDiv) {
+        
         const input = document.createElement('input');
         input.className = `input is-${data.color ?? this.mainColorBulmaVariable}`;
         input.type = data.type ?? 'text';
@@ -230,6 +291,115 @@ export class Modal {
 
         controlDiv.appendChild(input);
         this.inputs[key] = input; // Keep reference for retrieval
+        this.controlDivs[key] = controlDiv;
+    }
+    
+    // type = search
+    // takes resultsQuery, and minChars args
+    // resultsQuery is a function that takes input.value and returns type [{text: "text", id:int}...]
+    _renderSearchField(key, data, controlDiv) {
+        const dropdown = document.createElement('div');
+        dropdown.className = `dropdown is-up is-fullwidth`
+
+        dropdown.innerHTML = (
+            `<div class="field">
+                <div class="control">
+                    <input class="input is-${data.color ?? this.mainColorBulmaVariable}" type="text" placeholder="${data.placeholder}">
+                </div>
+            </div>
+            <div class="dropdown-menu" role="menu">
+                <div class="dropdown-content">
+                
+                </div)
+            </div>
+            `
+        );
+
+        const debouncedSearch = this._debounce(async (searchValue) => {
+            try {
+                const results = await data.resultsQuery(searchValue);
+                this._addSearchDropdownContent(dropdown, dropdownContent, results, input, key, data);
+            } catch(error) {
+                console.error('search query failed reason:', error);
+            }
+        }, 300)
+
+        const input = dropdown.querySelector('.input');
+        const dropdownContent = dropdown.querySelector('.dropdown-content');
+
+        input.addEventListener('input', (event) => {
+            const value = event.target.value;
+            const minChars = data.minChars ?? 3
+
+            if (value.length < minChars) {
+                if (value.length == 0) dropdownContent.innerHTML = ''
+                return false;
+            };
+
+            debouncedSearch(value);
+           
+        })
+
+        controlDiv.parentNode.replaceChild(dropdown, controlDiv)
+
+        this.inputs[key] = input;
+        this.controlDivs[key] = dropdown;
+    }
+
+    _addSearchDropdownContent(dropdown, dropdownContent, results, input, key, data) {
+
+        let dropdownItem;
+        let dropdownText;
+        dropdownContent.innerHTML = ''
+        dropdown.classList.remove('is-active');
+
+        results.forEach((result, index) => {
+            
+            if (!result.id) throw new Error(`results does not meet the minimum required shape at ${index}`);
+            if (!result.text) result.text = result.id;
+
+            dropdownItem = document.createElement('div');
+            dropdownItem.className = 'dropdown-item';
+
+            dropdownText = document.createElement('button');
+            dropdownText.type = 'button';
+            dropdownText.textContent = result.text;
+
+            dropdownText.addEventListener('click', () =>{
+                input.value = result.text;
+                this.hiddenValues[key] = result;
+                if (data.onSelect) data.onSelect(result);
+                dropdownContent.innerHTML = '';
+            });
+
+            dropdownItem.appendChild(dropdownText);
+            dropdownContent.appendChild(dropdownItem);
+        })
+
+        if (dropdownContent.innerHTML) dropdown.classList.add('is-active');
+    }
+
+    _renderChipsField(key, data, controlDiv) {
+        
+        const labelKey = data.labelKey ?? 'label'
+        const items = data.value ?? []
+        const onClick = data.onClick ?? null
+        const onDelete = data.onDelete ?? null
+
+        const chipsContainer = document.createElement('div');
+        chipsContainer.className = 'columns'
+        let chips
+        try {
+            chips = new Chips({ container: chipsContainer, items, labelKey, onClick, onDelete })
+        } catch (error) {
+            console.error('error creating modal chips', error);
+            throw new Error('error creating modal chips');
+        }
+
+        controlDiv.parentNode.replaceChild(chipsContainer, controlDiv);
+        this.controlDivs[key] = chipsContainer;
+        if (!this.hiddenValues[key]) this.hiddenValues[key] = {}
+        this.hiddenValues[key].chips = chips;
     }
 
     getAllFields() {

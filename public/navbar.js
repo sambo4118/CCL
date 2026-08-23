@@ -56,7 +56,6 @@ async function initAuthGatedNav() {
 
 function updateAuthSection(data) {
     const user = data.user;
-    console.debug('User data:', data);
     if (!data.loggedIn) return;
 
     const authSection = document.getElementById('authSection');

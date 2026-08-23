@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         displayClassDetails(targetClass);
         classEditButton.addEventListener('click', () => modal.open());
         const studentListContainer = document.getElementById('studentListContainer')
-        console.log(studentListContainer)
         setStudentList(targetClass.students, studentListContainer)
         
     } catch (err) {
@@ -67,10 +66,25 @@ function buildClassEditModal(targetClass) {
         className: {label:'class name:', type: 'text', placeholder: 'Input class name...', color: 'primary', value: targetClass.className},
         teacherName: {label:'teacher name:', type: 'text', placeholder: 'Input teacher name...', color: 'primary', value: targetClass.teacherName},
         classPhoto: { label: 'class photo:', type: 'file', placeholder: 'Select class photo...', color: 'primary', value: targetClass.image ?? null },
+        studentSearch: { label: 'students:', type: 'search', placeholder: 'Search student name...', color: 'primary', minChars: 2, resultsQuery: async (inputValue) => {
+            const responce = await fetch(`/api/students?search=${inputValue}`);
+            const responceJson = await responce.json()
+            if (!responce.ok) throw new Error(`responce is not ok, ${responceJson}`)
+            const result = responceJson.map((student) => {
+                return {
+                    text: student.name,
+                    id: student.id
+                }
+            })
+            
+            return result;
+        }
+        },
+        studentChips: { label: '', type: 'chips', value: targetClass.students, color: 'primary', labelKey: 'name', items: targetClass.students }
     };
-
+    
     modal.addFields(config);
-
+    customizeModalFields(modal, targetClass);
     return modal;
 }
 
@@ -104,8 +118,6 @@ async function updateClassInfo(targetClass, modal) {
 
 function setStudentList(students, studentListContainer) {
     studentListContainer.innerHTML = ''
-
-    console.log('running:', students, studentListContainer)
 
     students.forEach(student => {
         const studentMediaBox = document.createElement('a');
@@ -162,4 +174,44 @@ function setStudentList(students, studentListContainer) {
         studentListContainer.appendChild(studentMediaBox);
     });
     
+}
+
+function customizeModalFields(modal, targetClass) {
+    const searchDropdown = modal.controlDivs.studentSearch;
+    if (!searchDropdown) return;
+
+    const innerField = searchDropdown.querySelector('.field');
+    if (innerField) {
+        innerField.classList.add('mb-0');
+    }
+
+    const rowWrapper = document.createElement('div');
+    rowWrapper.className = 'columns is-mobile is-vcentered mb-0';
+
+    const inputCol = document.createElement('div');
+    inputCol.className = 'column mb-0 mr-0';
+
+    const btnCol = document.createElement('div');
+    btnCol.className = 'column is-narrow mr-0';
+
+    const actionButton = document.createElement('button');
+    actionButton.type = 'button';
+    actionButton.className = 'button is-info has-text-light';
+    actionButton.textContent = 'Add';
+
+    actionButton.addEventListener('click', () => {
+        const selectedStudent = modal.hiddenValues.studentSearch;
+        const chips = modal.hiddenValues.studentChips.chips;
+        const item = {name: selectedStudent.text, id: selectedStudent.id}
+        chips.addItem(item);
+        modal.hiddenValues.studentSearch = {};
+    });
+
+    btnCol.appendChild(actionButton);
+
+    // 3. Mount into DOM
+    searchDropdown.parentNode.insertBefore(rowWrapper, searchDropdown);
+    inputCol.appendChild(searchDropdown);
+    rowWrapper.appendChild(inputCol);
+    rowWrapper.appendChild(btnCol);
 }

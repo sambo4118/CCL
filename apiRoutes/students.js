@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { eq } from 'drizzle-orm';
+import { like, eq } from 'drizzle-orm';
 import { db } from '../database/index.js';
 import { students, classes } from '../database/schema.js';
 import { importStudents } from '../services/importStudents.js';
@@ -67,7 +67,7 @@ const searchQuery = req.query.search;
 
         if (searchQuery) {
             queryBuilder = queryBuilder
-                .where(ilike(students.name, `%${searchQuery}%`))
+                .where(like(students.name, `%${searchQuery}%`))
                 .limit(8);
         }
 

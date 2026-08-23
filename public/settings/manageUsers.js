@@ -1,4 +1,4 @@
-import { addChips, showWarning } from '../utils.js'
+import { Chips, showWarning } from '../utils.js'
 
 export async function setupManageUsers() {
     const manageUsersButton = document.getElementById('manageUsersButton');
@@ -26,7 +26,21 @@ async function openManageUsersModal() {
     const emailInput = document.getElementById('newUserEmail');
     const addUserButton = document.getElementById('addUserButton');
 
-    await refreshChips(chipContainer);
+    const chips = new Chips({
+        container: chipContainer,
+        onDelete: ({item, chip}) => {
+            showWarning(`Remove <strong>${item}</strong> from the allowed users?`, async () => {
+                chip.remove()
+                const ok = await removeUser(item);
+                if (!ok) {
+                    // Re-render from database if removal failed
+                    await refreshChips(chips);
+                }
+            });
+        }
+    });
+
+    await refreshChips(chips);
 
     const submitNewUser = async () => {
         const email = (emailInput.value || '').trim().toLowerCase();
@@ -42,7 +56,7 @@ async function openManageUsersModal() {
             const ok = await addUser(email);
             if (ok) {
                 emailInput.value = '';
-                await refreshChips(chipContainer);
+                await refreshChips(chips);
             }
         } finally {
             addUserButton.classList.remove('is-loading');
@@ -55,17 +69,13 @@ async function openManageUsersModal() {
     });
 }
 
-async function refreshChips(chipContainer) {
+async function refreshChips(chipsInstance) {
     const users = await loadUsers();
     if (!users) return;
+    
+    chipsInstance.clear();
     const emails = users.map(u => u.email);
-    const chipList = addChips(emails, null, (email) => {
-        showWarning(`Remove <strong>${email}</strong> from the allowed users?`, async () => {
-            await removeUser(email);
-            await refreshChips(chipContainer);
-        });
-    });
-    chipContainer.replaceChildren(...chipList);
+    chipsInstance.addItems(emails);
 }
 
 async function loadUsers() {

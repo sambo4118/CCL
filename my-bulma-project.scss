@@ -26,4 +26,22 @@ $neutral-color-dark : #2e2e2e;
     $light: $dark-green;
 }
 
+.dropdown {
+  &.is-fullwidth {
+    display: block; // Overrides inline-flex so it occupies the whole row
+    width: 100%;
+
+    .dropdown-trigger,
+    .dropdown-menu {
+      width: 100%;
+    }
+
+    .button {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+    }
+  }
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
