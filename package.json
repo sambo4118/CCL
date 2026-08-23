@@ -1,0 +1,22 @@
+{
+  "name": "ccl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "build-bulma": "sass --load-path=node_modules my-bulma-project.scss my-bulma-project.css",
+    "watch-sass": "npm run build-bulma -- --watch",
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sambo4118/CCL.git"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "bulma": "^1.0.4",
+    "express": "^4.21.2",
+    "sass": "^1.100.0"
+  }
+}

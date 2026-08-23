@@ -1,0 +1,25 @@
+$dark-green : #214d48;
+$light-green : #6b9976;
+$neutral-color-light : #f6f6f5;
+$neutral-color-dark : #2e2e2e;
+
+@use "bulma/sass" with (
+    $family-primary: '"outfit", sans-serif',
+    $primary: $dark-green,
+    $link: $light-green,
+    $control-border-width: 2px,
+    $input-shadow: none
+);
+
+@use "bulma/sass/themes/dark" as dark-theme;
+@use "bulma/sass/themes/setup" as theme-setup;
+
+// Force dark mode unconditionally — overrides both light default and prefers-color-scheme
+:root,
+[data-theme="light"],
+.theme-light {
+    @include dark-theme.dark-theme;
+    @include theme-setup.setup-theme;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
