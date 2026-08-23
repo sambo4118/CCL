@@ -27,18 +27,25 @@ studentsRoute.post('/import', upload.single('file'), async (req, res) => {
 // GET /api/students/:id — get all info on student with Id
 studentsRoute.get('/:id', async (req, res) => {
     const studentId = req.params.id;
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
-    let studentInfo;
-    
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });    
     try {
-        studentInfo = await db
+        const studentInfo = await db
             .select({
                 id: students.id,
                 name: students.name,
-                className: students.className,
+                classId: students.classId,
             })
+            .from(students)
+            .where(eq(students.id, studentId));
+        
+        if (studentInfo.length === 0) {
+            return res.status(404).json({ error: 'Student Not Found' });
+        }
+        
+        res.json(studentInfo[0])
     } catch (error) {
-        return res.status(404).json({ error: 'Student Not Found' });
+        console.error(error)
+        return res.status(500).json({ error: 'Internal Server Error' });
     }
 
 });

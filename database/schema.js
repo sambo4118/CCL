@@ -12,13 +12,19 @@ export const students = sqliteTable("students", {
     id: integer("id").primaryKey(),
     name: text("name").notNull(),
     classId: integer("class_id").notNull().references(() => classes.id),
+    age: integer("age"),
+    enrollmentdate: text("enrollmentdate"),
+    contact: text("contact"),
+    notes: text("notes"),
+    photo: blob("photo", { mode: "buffer" })
 });
 
 export const authors = sqliteTable("authors", {
     id: integer("id").primaryKey(),
     name: text("name").notNull().unique(),
     age: integer("age"),
-    bookCount: integer("book_count")
+    bookCount: integer("book_count"),
+    photo: blob("photo", { mode: "buffer" })
 });
 
 export const books = sqliteTable("books", {
@@ -51,13 +57,13 @@ export const users = sqliteTable("users", {
     googleId: text("google_id").notNull().unique(),
     email: text("email").notNull(),
     name: text("name").notNull(),
-    picture: text("picture"),
+    photo: blob("picture", { mode: "buffer" }),
     domain: text("domain")
 });
 
 export const allowedEmails = sqliteTable("allowed_emails", {
     id: integer("id").primaryKey(),
-    email: text("email").notNull().unique(),
+    email: text("email").notNull().unique("allowed_emails_new_email_thing"),
     note: text("note"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });

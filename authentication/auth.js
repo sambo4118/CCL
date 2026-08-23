@@ -105,13 +105,22 @@ export function setupPassport(app) {
 }
 
 export function setupAuthRoutes(app, sendPage, __dirname) {
-    app.get('/login', passport.authenticate('google', { scope: ['profile', 'email'] }));
+    app.get('/login', (req, res, next) => {
+        req.session.returnTo = req.headers.referer || '/';
+        next();
+    }, passport.authenticate('google', { scope: ['profile', 'email'] }));
 
     app.get('/auth/google/callback', 
         passport.authenticate('google', { failureRedirect: '/login-failed' }),
         (req, res) => {
             // Successful authentication, redirect home.
-            res.redirect('/');
+            const returnTo = req.session.returnTo || '/'
+            delete req.session.returnTo;
+
+            req.session.save((err) => {
+                if (err) console.error('Session save error:', err);
+                res.redirect(returnTo);
+            });
         }
     );
 
@@ -119,7 +128,7 @@ export function setupAuthRoutes(app, sendPage, __dirname) {
         res.status(401).sendPage(res, path.join(__dirname, 'views', 'login-failed.html'));
     });
 
-    app.get('/logout', (req, res) => {
+    app.get('/logout', (req, res, next) => {
         req.logout((err) => {
             if (err) return next(err);
             res.redirect('/');
