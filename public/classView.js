@@ -1,10 +1,12 @@
-import { loadClassDetails, Modal } from './utils.js';
+import { loadClassDetails, Modal, showWarning } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const classEditButton = document.getElementById('editClassButton');
     const classId = window.location.pathname.split('/').pop();
     try {
-        const targetClass = await loadClassDetails(classId);
+        let targetClass = await loadClassDetails(classId);
+        if (!targetClass?.success) return; 
+        targetClass = targetClass.responce;
         const modal = buildClassEditModal(targetClass);
         displayClassDetails(targetClass);
         classEditButton.addEventListener('click', () => modal.open());
@@ -12,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setStudentList(targetClass.students, studentListContainer)
         
     } catch (err) {
-        console.error(`failed to load class: ${classId}`, err)
+        showWarning(`failed to load class: ${classId}, press confrim to reload page`, {object: err, onConfirm: () => window.location.reload() })
     }
     
 });
@@ -41,6 +43,7 @@ function getDetailElements() {
 }
 
 function handleClassPhoto(classPhotoContainer, classPhoto, image) {
+    
     if (!classPhotoContainer) return console.warn('missing ClassPhotoContainer in current HTML context.'), false
 
     if (!image) {

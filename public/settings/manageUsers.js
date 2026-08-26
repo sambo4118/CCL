@@ -29,12 +29,13 @@ async function openManageUsersModal() {
     const chips = new Chips({
         container: chipContainer,
         onDelete: ({item, chip}) => {
-            showWarning(`Remove <strong>${item}</strong> from the allowed users?`, async () => {
-                chip.remove()
-                const ok = await removeUser(item);
-                if (!ok) {
-                    // Re-render from database if removal failed
-                    await refreshChips(chips);
+            showWarning(`Remove <strong>${item}</strong> from the allowed users?`, {
+                onConfirm: async () => {
+                    chip.remove();
+                    const ok = await removeUser(item);
+                    if (!ok) {
+                        await refreshChips(chips);
+                    }
                 }
             });
         }
@@ -47,7 +48,7 @@ async function openManageUsersModal() {
         if (!email) return;
 
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            showWarning('Please enter a valid email address.', () => {});
+            showWarning('Please enter a valid email address.', { onConfrim: () => { } });
             return;
         }
 
@@ -102,7 +103,7 @@ async function addUser(email) {
     });
     if (!response.ok) {
         const text = await response.text().catch(() => response.statusText);
-        showWarning(`Failed to add user: ${text}`, () => {});
+        showWarning(`Failed to add user: ${text}`, { onConfrim: () => { } });
         return false;
     }
     return true;
@@ -114,7 +115,7 @@ async function removeUser(email) {
     });
     if (!response.ok) {
         const text = await response.text().catch(() => response.statusText);
-        showWarning(`Failed to remove user: ${text}`, () => {});
+        showWarning(`Failed to remove user: ${text}`, {onConfirm: ( ) => { } });
         return false;
     }
     return true;

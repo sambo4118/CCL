@@ -1,4 +1,4 @@
-import { loadBookDetails, Modal } from "./utils.js";
+import { loadBookDetails, Modal, showWarning } from "./utils.js";
 
 document.addEventListener('DOMContentLoaded', async () => {
     const bookId = window.location.pathname.split('/').pop();
@@ -8,7 +8,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         displayBookDetails(book);
         const modal = buildEditModal(book);
     } catch (err) {
-        console.error('Failed to load book:', err);
+        showWarning(`Error failed to load book: ${err}, press confirm to reload`, () => {
+            window.location.reload();
+        })
     }
 });
 

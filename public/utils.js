@@ -1,5 +1,5 @@
-export function showWarning(message, onConfirm, onCancel = null) {
-    console.warn(`Warning: ${message}`);
+export function showWarning(message, {object = null, onConfirm = null, onCancel = null }) {
+    console.warn(`Warning: ${message}`, object);
 
     const warningModal = document.createElement('div');
     warningModal.classList.add('modal', 'is-active');
@@ -24,6 +24,7 @@ export function showWarning(message, onConfirm, onCancel = null) {
         warningModal.remove()
     }
 
+    if (!onConfirm) onConfirm = () => closeModal;
     if (!onCancel) onCancel = () => closeModal;
 
     warningModal.querySelectorAll('.modal-background, .modal-close, .modal-card-head .delete, .modal-card-foot .button').forEach((close) => {
@@ -44,6 +45,51 @@ export function showWarning(message, onConfirm, onCancel = null) {
     document.body.appendChild(warningModal);
 }
 
+export function showAuthWarning(message) {
+    const modal = document.createElement('div');
+    modal.className = 'modal is-active';
+
+    const close = () => modal.remove();
+
+    const background = document.createElement('div');
+    background.className = 'modal-background';
+    background.addEventListener('click', close);
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+
+    const head = document.createElement('header');
+    head.className = 'modal-card-head has-background-warning';
+    const title = document.createElement('p');
+    title.className = 'modal-card-title';
+    title.textContent = 'Authentication required';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete';
+    deleteBtn.setAttribute('aria-label', 'close');
+    deleteBtn.addEventListener('click', close);
+    head.append(title, deleteBtn);
+
+    const body = document.createElement('section');
+    body.className = 'modal-card-body';
+    body.textContent = message;
+
+    const foot = document.createElement('footer');
+    foot.className = 'modal-card-foot';
+    const loginBtn = document.createElement('a');
+    loginBtn.className = 'button is-info has-text-white mr-2';
+    loginBtn.href = '/login';
+    loginBtn.textContent = 'Log in';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', close);
+    foot.append(loginBtn, cancelBtn);
+
+    card.append(head, body, foot);
+    modal.append(background, card);
+    document.body.appendChild(modal);
+}
+
 export async function loadBookDetails(bookId) {
     const responce = await fetch(`/api/books/${bookId}`)
     if (!responce.ok) { console.error('fetch error:', responce.json()); return false; }
@@ -53,8 +99,20 @@ export async function loadBookDetails(bookId) {
 }
 
 export async function loadClassDetails(classId) {
-    const targetClass = await fetch(`/api/classes/${classId}`).then((responce) => responce.json());
-    return targetClass;
+    let responce = await fetch(`/api/classes/${classId}`);
+
+    if (!responce.ok) {
+        if (responce.status == 401) {
+            showAuthWarning('You are not authrized to view classes, or students please sign in');
+            return { success: false, responce };
+        } else {
+            showWarning('error loading class', { object: responce });
+            return { success: false, responce };
+        }
+    }
+
+    const targetClass = await responce.json();
+    return { success: true, targetClass };
 }
 
 export class Chips {
