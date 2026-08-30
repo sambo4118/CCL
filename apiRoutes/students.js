@@ -24,6 +24,32 @@ studentsRoute.post('/import', upload.single('file'), async (req, res) => {
     }
 });
 
+// PUT /api/students/class/:id
+
+studentsRoute.put('class/:id', async (req, res) => {
+    const studentId = req.params.id;
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    
+    let updateData = {};
+    updateData.classId = req.body;
+
+    try {
+        const updatedStudent = await db
+        .select(students)
+        .set(updateData)
+        .where(eq(students.id, studentId))
+        .returning()
+        .get()
+
+        if (!updatedStuxent) return res.status(404).json({ error: 'Student not found' });
+
+        res.json(updatedStudent)
+        
+    } catch (error) {
+        return res.status(404).json({ error: 'Failed to save student class reference'})
+    }
+})
+
 // GET /api/students/:id — get all info on student with Id
 studentsRoute.get('/:id', async (req, res) => {
     const studentId = req.params.id;
