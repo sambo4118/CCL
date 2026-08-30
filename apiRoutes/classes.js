@@ -1,5 +1,5 @@
 import express from 'express';
-import { eq, count } from 'drizzle-orm';
+import { eq, count, inArray, notInArray, and } from 'drizzle-orm';
 import { db } from '../database/index.js';
 import { classes, students } from '../database/schema.js';
 import multer from 'multer';
@@ -83,10 +83,6 @@ classesRoute.get('/:id', async (req, res) => {
 classesRoute.put('/:id', upload.single('image'), async (req, res) => {
     const classId = req.params.id;
     
-    console.log('--- Incoming PUT Request ---');
-    console.log('Parsed text fields (req.body):', req.body);
-    console.log('Parsed file (req.file):', req.file ? req.file.originalname : 'No file received');
-    
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
 
     const { name, teacherName } = req.body;
@@ -95,32 +91,98 @@ classesRoute.put('/:id', upload.single('image'), async (req, res) => {
     
     if (name && name !== 'undefined' && name !== 'null') updateData.name = name;
     if (teacherName && teacherName !== 'undefined' && teacherName !== 'null') updateData.teacherName = teacherName;
-    
-    if (req.file) {
-        updateData.image = req.file.buffer;
+    if (req.file) updateData.image = req.file.buffer;
+
+    let studentIds = null;
+    if (req.body.studentIds !== undefined && req.body.studentIds !== 'undefined') {
+        try {
+            studentIds = typeof req.body.studentIds === 'string' 
+                ? JSON.parse(req.body.studentIds) 
+                : req.body.studentIds;
+        } catch (error) {
+            return res.status(400).json({ error: `Invalid JSON for studentIds: ${error.message}` });
+        }
+        if (!Array.isArray(studentIds)) {
+            return res.status(400).json({ error: 'studentIds must be an array' });
+        }
+        studentIds = studentIds.map(Number).filter(id => !isNaN(id));
     }
 
-    if (Object.keys(updateData).length === 0) {
-        console.warn('Update aborted: No valid fields provided');
+    const hasClassUpdates = Object.keys(updateData).length > 0;
+    const hasStudentUpdates = studentIds !== null;
+
+    if (!hasClassUpdates && !hasStudentUpdates) {
         return res.status(400).json({ error: 'No valid data provided to update' });
     }
 
     try {
-        const updatedClass = await db 
-            .update(classes)
-            .set(updateData)
-            .where(eq(classes.id, classId))
-            .returning()
-            .get();
-            
-        if (!updatedClass) return res.status(404).json({ error: 'Class not found' });
+        const updatedClass = await db.transaction((transaction) => {
+            let classRecord = null;
+            if (hasClassUpdates) {
+                classRecord = transaction
+                    .update(classes)
+                    .set(updateData)
+                    .where(eq(classes.id, classId))
+                    .returning()
+                    .get();
+            } else {
+                classRecord = transaction
+                    .select()
+                    .from(classes)
+                    .where(eq(classes.id, classId))
+                    .get();
+            }
 
-        res.json(updatedClass);
+            if (!classRecord) throw new Error('CLASS_NOT_FOUND');
+            if (!hasStudentUpdates) return classRecord;
+
+            if (studentIds.length === 0) {
+                transaction.update(students)
+                    .set({ classId: null })
+                    .where(eq(students.classId, classId))
+                    .run();
+                return classRecord;
+            }
+
+            const existing = transaction
+                .select({ id: students.id })
+                .from(students)
+                .where(inArray(students.id, studentIds))
+                .all();
+            
+            if (existing.length !== studentIds.length) {
+                throw new Error('INVALID_STUDENT_ID');
+            }
+
+            transaction.update(students)
+                .set({ classId: null })
+                .where(
+                    and(
+                        eq(students.classId, classId),
+                        notInArray(students.id, studentIds)
+                    )
+                )
+                .run()
+            
+            transaction.update(students)
+                .set({ classId: Number(classId) })
+                .where(inArray(students.id, studentIds))
+                .run();
+            
+            return classRecord;
+        });
+
+        return res.json(updatedClass);
 
     } catch (error) {
-        console.error('--- Drizzle DB Error ---');
-        console.error(error);
-        res.status(500).json({ error: 'Failed to update class in database' });
+        if (error.message === 'CLASS_NOT_FOUND') {
+            return res.status(404).json({ error: 'Class not found' });
+        }
+        if (error.message === 'INVALID_STUDENT_ID') {
+            return res.status(400).json({ error: 'One or more selected student IDs do not exist' });
+        }
+        console.error('--- Drizzle DB Error ---', error);
+        return res.status(500).json({ error: 'Failed to update class in database' });
     }
 });
 

@@ -5,3 +5,4 @@ authentication/sessions.db
 *.xlsx
 *.xls
 *.csv
+database/migrations/*

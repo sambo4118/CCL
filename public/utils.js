@@ -173,6 +173,7 @@ export class Chips {
         deleteButton.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
+            this.removeItem(item, chipColumn);
             if (this.onDelete) this.onDelete({ item, chip });
         });
 

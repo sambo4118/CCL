@@ -11,7 +11,7 @@ export const classes = sqliteTable("classes", {
 export const students = sqliteTable("students", {
     id: integer("id").primaryKey(),
     name: text("name").notNull(),
-    classId: integer("class_id").notNull().references(() => classes.id),
+    classId: integer("class_id").references(() => classes.id),
     age: integer("age"),
     enrollmentdate: text("enrollmentdate"),
     contact: text("contact"),
@@ -63,7 +63,7 @@ export const users = sqliteTable("users", {
 
 export const allowedEmails = sqliteTable("allowed_emails", {
     id: integer("id").primaryKey(),
-    email: text("email").notNull().unique("allowed_emails_new_email_thing"),
+    email: text("email").notNull().unique(),
     note: text("note"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });

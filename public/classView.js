@@ -3,31 +3,43 @@ import { loadClassDetails, Modal, showWarning } from './utils.js';
 document.addEventListener('DOMContentLoaded', async () => {
     const classEditButton = document.getElementById('editClassButton');
     const classId = window.location.pathname.split('/').pop();
+
     try {
-        let targetClass = await loadClassDetails(classId);
-        if (!targetClass?.success) return; 
-        targetClass = targetClass.responce;
+        let result = await loadClassDetails(classId);
+        if (!result?.success) return; 
+
+        const targetClass = result.targetClass; // { class: {...}, students: [...] }
         const modal = buildClassEditModal(targetClass);
+        
         displayClassDetails(targetClass);
         classEditButton.addEventListener('click', () => modal.open());
-        const studentListContainer = document.getElementById('studentListContainer')
-        setStudentList(targetClass.students, studentListContainer)
+
+        const studentListContainer = document.getElementById('studentListContainer');
+        if (studentListContainer && targetClass.students) {
+            setStudentList(targetClass.students, studentListContainer);
+        }
         
     } catch (err) {
-        showWarning(`failed to load class: ${classId}, press confrim to reload page`, {object: err, onConfirm: () => window.location.reload() })
+        showWarning(`failed to load class: ${classId}, press confirm to reload page`, {
+            object: err, 
+            onConfirm: () => window.location.reload() 
+        });
     }
-    
 });
 
 function displayClassDetails(targetClass) {
-    const targetClassStudents = targetClass.students
-    targetClass = targetClass.class
-    const { className, teacherName, studentCount, gradeLevel, studentList, classPhoto, classPhotoContainer } = getDetailElements();
-    className.textContent = targetClass.name ?? 'Error Loading Class Name.';
-    teacherName.textContent = targetClass.teacherName ?? console.log(`${targetClass.className ??( 'Class: ' + targetClass.classId ) } Missing Teacher Name`);
-    studentCount.textContent = `student #: ${targetClass.studentCount}` ?? console.log('missing student count' , targetClass.studentCount);
-    if (gradeLevel) gradeLevel.textContent = `grade ${targetClass.gradeLevel}`;
-    handleClassPhoto(classPhotoContainer, classPhoto, targetClass.classPhoto);
+    const classInfo = targetClass.class;
+    const { className, teacherName, studentCount, gradeLevel, classPhoto, classPhotoContainer } = getDetailElements();
+
+    className.textContent = classInfo.name ?? 'Error Loading Class Name.';
+    teacherName.textContent = classInfo.teacherName ?? console.log(`${classInfo.name ?? ('Class: ' + classInfo.id)} Missing Teacher Name`);
+    studentCount.textContent = `student #: ${classInfo.studentCount ?? 0}`;
+    
+    if (gradeLevel && classInfo.gradeLevel) {
+        gradeLevel.textContent = `grade ${classInfo.gradeLevel}`;
+    }
+
+    handleClassPhoto(classPhotoContainer, classPhoto, classInfo.classPhoto);
     return true;
 }
 
@@ -43,8 +55,7 @@ function getDetailElements() {
 }
 
 function handleClassPhoto(classPhotoContainer, classPhoto, image) {
-    
-    if (!classPhotoContainer) return console.warn('missing ClassPhotoContainer in current HTML context.'), false
+    if (!classPhotoContainer) return console.warn('missing ClassPhotoContainer in current HTML context.'), false;
 
     if (!image) {
         classPhotoContainer.style.display = 'none';
@@ -55,35 +66,69 @@ function handleClassPhoto(classPhotoContainer, classPhoto, image) {
     const blob = new Blob([uint8Array], { type: 'image/jpeg' });
     const imageUrl = URL.createObjectURL(blob);
     
-    
     classPhotoContainer.style.display = 'block';
     classPhoto.src = imageUrl;
 }
 
 function buildClassEditModal(targetClass) {
-    targetClass = targetClass.class ?? targetClass;
+    const classInfo = targetClass.class;
+    const initialStudents = targetClass.students ?? [];
 
-    const modal = new Modal({ title:targetClass.name, mainColorBulmaVariable:'primary', successButtonText:'Save', onConfirm: ((modal) => updateClassInfo(targetClass, modal)) });
+    const modal = new Modal({ 
+        title: classInfo.name, 
+        mainColorBulmaVariable: 'primary', 
+        successButtonText: 'Save', 
+        onConfirm: ((modal) => updateClassInfo(targetClass, modal)) 
+    });
     
     const config = {
-        className: {label:'class name:', type: 'text', placeholder: 'Input class name...', color: 'primary', value: targetClass.className},
-        teacherName: {label:'teacher name:', type: 'text', placeholder: 'Input teacher name...', color: 'primary', value: targetClass.teacherName},
-        classPhoto: { label: 'class photo:', type: 'file', placeholder: 'Select class photo...', color: 'primary', value: targetClass.image ?? null },
-        studentSearch: { label: 'students:', type: 'search', placeholder: 'Search student name...', color: 'primary', minChars: 2, resultsQuery: async (inputValue) => {
-            const responce = await fetch(`/api/students?search=${inputValue}`);
-            const responceJson = await responce.json()
-            if (!responce.ok) throw new Error(`responce is not ok, ${responceJson}`)
-            const result = responceJson.map((student) => {
-                return {
-                    text: student.name,
-                    id: student.id
-                }
-            })
-            
-            return result;
-        }
+        className: {
+            label: 'class name:',
+            type: 'text',
+            placeholder: 'Input class name...',
+            color: 'primary',
+            value: classInfo.name
         },
-        studentChips: { label: '', type: 'chips', value: targetClass.students, color: 'primary', labelKey: 'name', items: targetClass.students }
+        teacherName: {
+            label: 'teacher name:',
+            type: 'text',
+            placeholder: 'Input teacher name...',
+            color: 'primary',
+            value: classInfo.teacherName
+        },
+        classPhoto: {
+            label: 'class photo:',
+            type: 'file',
+            placeholder: 'Select class photo...',
+            color: 'primary',
+            value: classInfo.classPhoto ?? null
+        },
+        studentSearch: { 
+            label: 'students:', 
+            type: 'search', 
+            placeholder: 'Search student name...', 
+            color: 'primary', 
+            minChars: 2, 
+            resultsQuery: async (inputValue) => {
+                const response = await fetch(`/api/students?search=${inputValue}`);
+                const responseJson = await response.json();
+                if (!response.ok) throw new Error(`Response is not ok, ${responseJson}`);
+                return responseJson.map((student) => ({
+                    text: student.name,
+                    id: student.id,
+                    classId: student.classId,
+                    className: student.className
+                }));
+            }
+        },
+        studentChips: { 
+            label: '', 
+            type: 'chips', 
+            value: initialStudents, 
+            color: 'primary', 
+            labelKey: 'name', 
+            items: initialStudents 
+        }
     };
     
     modal.addFields(config);
@@ -92,40 +137,63 @@ function buildClassEditModal(targetClass) {
 }
 
 async function updateClassInfo(targetClass, modal) {
-    const className = modal.getField('className').value;
-    const teacherName = modal.getField('teacherName').value;
-    const classPhoto = modal.getField('classPhoto').files[0];
-    const classId = targetClass.id
+    const classInfo = targetClass.class;
+    const classId = classInfo.id;
+
+    const className = modal.getField('className')?.value;
+    const teacherName = modal.getField('teacherName')?.value;
+    const classPhoto = modal.getField('classPhoto')?.files?.[0];
+
+    const chipsInstance = modal.hiddenValues.studentChips?.chips;
+    const studentChips = chipsInstance ? chipsInstance.getItems() : [];
+    const studentIds = studentChips.map(student => student.id);
 
     const formData = new FormData();
-    
     if (className) formData.append('name', className);
     if (teacherName) formData.append('teacherName', teacherName);
     if (classPhoto) formData.append('image', classPhoto);
+    formData.append('studentIds', JSON.stringify(studentIds));
 
-    const responce = await fetch(`/api/classes/${classId}`, {
-        method: 'PUT',
-        body: formData,
-        credentials: 'include'
-    });
+    try {
+        const response = await fetch(`/api/classes/${classId}`, {
+            method: 'PUT',
+            body: formData,
+            credentials: 'include'
+        });
 
-    if (!responce.ok) {
-        const errorData = await responce.json();
-        console.error('request error', errorData ?? '');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            showWarning('Failed to update Class', { 
+                object: { error: errorData?.error || response.statusText } 
+            });
+            return false;
+        }
+
+        const result = await loadClassDetails(classId);
+        if (!result?.success) return false;
+
+        const updatedClass = result.targetClass; // fresh { class, students }
+        displayClassDetails(updatedClass);
+
+        const studentListContainer = document.getElementById('studentListContainer');
+        if (studentListContainer && updatedClass.students) {
+            setStudentList(updatedClass.students, studentListContainer);
+        }
+
+        return true;
+    } catch (error) {
+        showWarning(`Error saving class: ${error.message}`);
+        return false;
     }
-
-    targetClass = await loadClassDetails(classId);
-    return displayClassDetails(targetClass);
-
 }
 
 function setStudentList(students, studentListContainer) {
-    studentListContainer.innerHTML = ''
+    studentListContainer.innerHTML = '';
 
     students.forEach(student => {
         const studentMediaBox = document.createElement('a');
         studentMediaBox.className = 'box has-background-primary';
-        studentMediaBox.href = `/students/${student.id}`
+        studentMediaBox.href = `/students/${student.id}`;
 
         const studentMedia = document.createElement('div');
         studentMedia.className = 'media';
@@ -160,7 +228,6 @@ function setStudentList(students, studentListContainer) {
                 textContainer.appendChild(nameNode);
             }
             
-            
             content.appendChild(textContainer);
             mediaContent.appendChild(content);
             studentMedia.appendChild(mediaContent);
@@ -173,10 +240,9 @@ function setStudentList(students, studentListContainer) {
             studentMedia.appendChild(mediaRight);
         }
 
-        studentMediaBox.appendChild(studentMedia)
+        studentMediaBox.appendChild(studentMedia);
         studentListContainer.appendChild(studentMediaBox);
     });
-    
 }
 
 function customizeModalFields(modal, targetClass) {
@@ -204,15 +270,21 @@ function customizeModalFields(modal, targetClass) {
 
     actionButton.addEventListener('click', () => {
         const selectedStudent = modal.hiddenValues.studentSearch;
-        const chips = modal.hiddenValues.studentChips.chips;
-        const item = {name: selectedStudent.text, id: selectedStudent.id}
+        if (!selectedStudent || !selectedStudent.id) return;
+
+        const chips = modal.hiddenValues.studentChips?.chips;
+        if (!chips) return;
+
+        const item = { name: selectedStudent.text, id: selectedStudent.id };
         chips.addItem(item);
         modal.hiddenValues.studentSearch = {};
+        
+        const searchInput = modal.getField('studentSearch');
+        if (searchInput) searchInput.value = '';
     });
 
     btnCol.appendChild(actionButton);
 
-    // 3. Mount into DOM
     searchDropdown.parentNode.insertBefore(rowWrapper, searchDropdown);
     inputCol.appendChild(searchDropdown);
     rowWrapper.appendChild(inputCol);
