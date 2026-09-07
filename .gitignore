@@ -2,6 +2,7 @@ database/library.db
 database/library.db-*
 .env
 authentication/sessions.db
+authentication/sessions.db-*
 *.xlsx
 *.xls
 *.csv
