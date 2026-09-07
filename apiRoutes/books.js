@@ -5,6 +5,7 @@ import { db } from '../database/index.js';
 import { books } from '../database/schema.js';
 import { importBooks } from '../services/importBooks.js';
 import { getBookCover } from '../services/getBookCovers.js';
+import { fetchBookInfoExternal } from '../services/fetchBookInfoExternal.js';
 
 const booksRoute = express.Router();
 
@@ -113,6 +114,40 @@ booksRoute.get('/:id/cover', async (req, res) => {
     }
 });
 
+//GET /api/books/external/:isbn — fetch book info from external API (Google Books)
+booksRoute.get('/external/:isbn', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+
+    const isbn = req.params.isbn.trim();
+    if (!isbn) return res.status(400).json({ error: 'Missing ISBN' });
+
+    try {
+        const data = await fetchBookInfoExternal(isbn);
+        if (!data || !data.items || data.items.length === 0) return res.status(404).json({ error: 'Book not found in external API' });
+        
+        const volumeInfo = data.items[0].volumeInfo;
+       
+        return res.json({
+            title: volumeInfo.title ?? null,
+            subtitle: volumeInfo.subtitle ?? null,
+            authors: volumeInfo.authors ?? [],
+            publisher: volumeInfo.publisher ?? null,
+            publishedDate: volumeInfo.publishedDate ?? null,
+            description: volumeInfo.description ?? null,
+            pageCount: volumeInfo.pageCount ?? null,
+            categories: volumeInfo.categories ?? [],
+            coverUrl: volumeInfo.imageLinks?.thumbnail || volumeInfo.imageLinks?.smallThumbnail || null,
+            raw: volumeInfo
+        });
+
+
+    } catch (error) {
+        console.error('Error fetching external book info:', error);
+        res.status(500).json({ error: 'Failed to fetch external book info', details: error.message });
+    }
+
+});
+
 // GET /api/books/:id — fetch a single book
 booksRoute.get('/:id', async (req, res) => {
     const id = Number(req.params.id);
@@ -126,5 +161,7 @@ booksRoute.get('/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch book' });
     }
 });
+
+
 
 export default booksRoute;

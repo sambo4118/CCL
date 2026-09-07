@@ -461,6 +461,33 @@ export class Modal {
         this.hiddenValues[key].chips = chips;
     }
 
+    // type = responsive
+    // takes responseFunction, and minChars args
+    // responseFunction is a function that takes input.value and is run on debounced keystrokes.
+    _renderResponsiveField(key, data, controlDiv) {
+        const input = document.createElement('input');
+        input.className = `input is-${data.color ?? this.mainColorBulmaVariable}`;
+        input.type = data.type ?? 'text';
+        input.placeholder = data.placeholder ?? '';
+        if (data.value) input.value = data.value;
+
+        const debouncedResponse = this._debounce(async (inputValue) => {
+            try {
+                await data.responseFunction(inputValue);
+            } catch (error) {
+                console.error(`Error in responsive field for key ${key}:`, error);
+            }
+        }, data.delay ?? 300);
+
+        input.addEventListener('input', (e) => {
+            debouncedResponse(e.target.value);
+        });
+
+        controlDiv.appendChild(input);
+        this.inputs[key] = input; // Keep reference for retrieval
+        this.controlDivs[key] = controlDiv;
+    }
+
     getAllFields() {
         const values = {};
         Object.entries(this.inputs).forEach(([key, input]) => {

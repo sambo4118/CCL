@@ -7,9 +7,77 @@
         <link rel="stylesheet" href="/css/my-bulma-project.css">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <script type="module" src="./navbar.js"></script>
+        <script type="module" src="./dashboard.js"></script>
     </head>
     <body>
         <!-- NAVBAR -->
-        
+         <section class="section">
+         </section>
+        <section class="section">
+            <nav class="level">
+                <div class="level-left">
+                    <div class="level-item has-text-centered">
+                        <div class="columns is-2">
+                            <div class="column has-text-centered is-5">
+                                <div class="box has-background-info">
+                                    <p class="title has-text-white is-6">Outstanding: <span id="outstandingBooks">...</span></p>
+                                </div>
+                            </div>
+                            <div class="column has-text-centered is-5">
+                                <div class="box has-background-warning">
+                                    <p class="title has-text-white is-6">Due Today: <span id="dueBooks">...</span></p>
+                                </div>
+                            </div>
+                            <div class="column has-text-centered is-5">
+                                <div class="box has-background-danger">
+                                    <p class="title has-text-white is-6">Overdue: <span id="overdueBooks">...</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <button class="button is-primary has-text-white is-fullwidth" id="addBookButton">
+                            <span class="icon"><i class="fas fa-plus"></i></span>
+                            <span>Add Book</span>
+                        </button>
+                    </div>
+                    <div class="level-item">
+                        <button class="button is-primary has-text-white is-fullwidth" id="addCheckoutButton">
+                            <span class="icon"><i class="fas fa-plus"></i></span>
+                            <span>Add Checkout</span>
+                        </button>
+                    </div>
+                    <div class="level-item">
+                        <div class="field">
+                            <div class="control" id="sortByControl">
+                                <div class="select is-primary" id ="sortBySelect">
+                                    <select id="sortBy">
+                                        <option value="due">Due</option>
+                                        <option value="title">Title</option>
+                                        <option value="student">Student</option>
+                                        <option value="class">Class</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="level-item">
+                        <div class="field">
+                            <div class="control has-icons-right has-icons-left">
+                                <input class="input is-primary" type="text" placeholder="Search" id="searchInput">
+                                <span class="icon is-small is-left">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <span class="icon is-small is-right">
+                                    <i class="fas fa-book" id="clearSearch"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+        </section>
     </body>
 </html>

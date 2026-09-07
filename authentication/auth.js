@@ -16,7 +16,8 @@ export function setupSessionStore(app) {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const SQLiteStore = betterSqlite3SessionStoreFactory(session);
 
-    const sessionDb = new Database(path.join(__dirname, 'sessions.db'));
+    const sessionDb = new Database(path.join(__dirname, 'sessions.db'), { timeout: 5000 });
+    sessionDb.pragma('journal_mode = WAL');
 
     app.use(session({
         store: new SQLiteStore({

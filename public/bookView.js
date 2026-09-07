@@ -55,14 +55,59 @@ function buildEditModal(book) {
 
     const config = {
     
-        bookTitle: {label:'Title:', type: 'text', placeholder: 'Input title', color:'primary', value: book.title},
-        authorName: {label:'Author:', type: 'text', placeholder: 'Unknown author', color:'primary', value: (book.author == 'Unknown') ? null : book.author},
-        localNumber: {label: 'local number:', type: 'text', placeholder: 'ERROR: MISSING LOCAL NUMBER', color:'primary', value: book.localNumber},
-        published: {label:'Published year:', type: 'text', placeholder: 'the year published', color:'primary', value: book.published },
-        publisher: {label:'Publisher:', type: 'text', placeholder: 'the publisher', color:'primary', value: book.publisher },
-        isbn: {label: 'ISBN#:', type: 'text', placeholder: 'ISBN#', color:'primary', value: book.isbn ?? 'ERROR: MISSING ISBN NUMBER'},
-        blurb: {label: 'blurb (just a description of the book):', type: 'textarea', color:'primary', value: book.blurb},
-        bookCover: {label:'Cover:', type: 'file', placeholder: 'Select cover...',  color:'primary',}
+        bookTitle: {
+            label:'Title:',
+            type: 'text',
+            placeholder: 'Input title',
+            color:'primary',
+            value: book.title
+        },
+        authorName: {
+            label:'Author:',
+            type: 'text',
+            placeholder: 'Unknown author',
+            color:'primary',
+            value: (book.author == 'Unknown') ? null : book.author
+        },
+        localNumber: {
+            label: 'local number:',
+            type: 'text',
+            placeholder: 'ERROR: MISSING LOCAL NUMBER',
+            color:'primary',
+            value: book.localNumber
+        },
+        published: {label:'Published year:',
+            type: 'text',
+            placeholder: 'the year published',
+            color:'primary',
+            value: book.published
+        },
+        publisher: {
+            label:'Publisher:',
+            type: 'text',
+            placeholder: 'the publisher',
+            color:'primary',
+            value: book.publisher
+        },
+        isbn: {
+            label: 'ISBN#:',
+            type: 'responsive',
+            placeholder: 'ISBN#',
+            color:'primary',
+            value: book.isbn ?? 'ERROR: MISSING ISBN NUMBER',
+            responseFunction: (input) => fillModal(input),
+            minChars: 10
+        },
+        blurb: {label: 'blurb (just a description of the book):',
+            type: 'textarea',
+            color:'primary',
+            value: book.blurb
+        },
+        bookCover: {label:'Cover:',
+            type: 'file',
+            placeholder: 'Select cover...', 
+            color:'primary',
+        }
 
     };
 
@@ -71,3 +116,14 @@ function buildEditModal(book) {
 
     return modal;
 }
+
+async function fillModal(input) {
+    const isbn = input.value;
+    if (!isbn) return false;
+
+    const bookInfo = await fetchBookInfoExternal(isbn);
+    if (!bookInfo) return false;
+
+    console.log('bookInfo', bookInfo);
+    return true;
+} 
