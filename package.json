@@ -5,6 +5,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
+    "seed:checkouts": "node scripts/seedCheckouts.js",
     "build-bulma": "sass --load-path=node_modules my-bulma-project.scss public/css/my-bulma-project.css",
     "watch-sass": "npm run build-bulma -- --watch",
     "start": "node server.js",

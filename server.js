@@ -31,6 +31,9 @@ import booksRoute from './apiRoutes/books.js';
 import usersRoute from './apiRoutes/users.js';
 import studentsRoute from './apiRoutes/students.js';
 import classesRoute from './apiRoutes/classes.js';
+import checkoutsRoute from './apiRoutes/checkouts.js';
+
+app.use('/api/checkouts', checkoutsRoute);
 
 app.use('/api/books', booksRoute);
 
