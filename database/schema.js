@@ -48,6 +48,7 @@ export const checkouts = sqliteTable("checkouts", {
     id: integer("id").primaryKey(),
     studentId: integer("student_id").notNull().references(() => students.id),
     bookId: integer("book_id").notNull().references(() => books.id),
+    duration: integer("duration").default(14),
     checkoutDate: text("checkout_date").notNull().default(sql`CURRENT_TIMESTAMP`),
     returnDate: text("return_date"),
 });

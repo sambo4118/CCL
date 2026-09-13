@@ -9,6 +9,7 @@ const checkoutsObjectShape = {
     id: checkouts.id,
     checkoutDate: checkouts.checkoutDate,
     returnDate: checkouts.returnDate,
+    duration: checkouts.duration,
     studentId: checkouts.studentId,
     studentName: students.name,
     bookTitle: checkouts.bookId,
@@ -18,7 +19,7 @@ const checkoutsObjectShape = {
     bookId: books.id,
     bookTitle: books.title,
     bookAuthor: books.author,
-    localNumber: books.localNumber
+    localNumber: books.localNumber,
 };
 
 // GET /api/checkouts/outstanding — list all outstanding checkouts
@@ -33,7 +34,10 @@ checkoutsRoute.get('/outstanding', async (req, res) => {
             .leftJoin(classes, eq(students.classId, classes.id))
             .where(isNull(checkouts.returnDate))
             .orderBy(desc(checkouts.checkoutDate));
-        return res.json(rows);
+        return res.json(rows.map(row => ({
+            ...row,
+            bookCoverUrl: `/api/books/${row.bookId}/cover`,
+        })));
     } catch (error) {
         console.error('Error fetching outstanding checkouts:', error);
         return res.status(500).json({ error: 'Failed to fetch outstanding checkouts' });
