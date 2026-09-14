@@ -1,0 +1,78 @@
+name: Bulk Assign Milestones by Title Keyword
+
+on:
+  # Allows you to manually trigger this retroactively from the "Actions" tab
+  workflow_dispatch:
+  # Automatically handles future new or edited issues
+  issues:
+    types: [opened, edited]
+
+jobs:
+  assign-milestone:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Match Keywords and Assign Milestones
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Define your mapping rule: "keyword" -> "Milestone Title"
+            // Make sure the milestone name exactly matches your GitHub milestone
+            const rules = [
+              { keyword: 'mobile', milestoneName: 'v2 Mobile Compatability' },
+              { keyword: 'v2 todo',          milestoneName: 'Center Cross Library v2 roll out' },
+            ];
+
+            // 1. Fetch all open milestones in the repository
+            const milestonesResp = await github.rest.issues.listMilestones({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            const milestoneMap = {};
+            milestonesResp.data.forEach(m => {
+              milestoneMap[m.title.toLowerCase()] = m.number;
+            });
+
+            // 2. Fetch issues to process
+            let issuesToProcess = [];
+
+            if (context.eventName === 'workflow_dispatch') {
+              // Retroactive mode: Fetch all open issues in the repo
+              const issuesResp = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                per_page: 100 // Adjust or paginate if you have more than 100 issues
+              });
+              // Filter out Pull Requests (GitHub treats PRs as issues in this API)
+              issuesToProcess = issuesResp.data.filter(issue => !issue.pull_request);
+            } else {
+              // Real-time mode: Just process the single incoming issue
+              issuesToProcess = [context.payload.issue];
+            }
+
+            // 3. Evaluate and assign
+            for (const issue of issuesToProcess) {
+              const title = issue.title.toLowerCase();
+              
+              for (const rule of rules) {
+                if (title.includes(rule.keyword.toLowerCase())) {
+                  const milestoneNumber = milestoneMap[rule.milestoneName.toLowerCase()];
+                  
+                  if (milestoneNumber) {
+                    console.log(`Assigning issue #${issue.number} ("${issue.title}") to milestone "${rule.milestoneName}"`);
+                    await github.rest.issues.update({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: issue.number,
+                      milestone: milestoneNumber
+                    });
+                    break; // Stop matching other keywords for this issue once matched
+                  } else {
+                    console.warn(`Milestone "${rule.milestoneName}" was matched but does not exist in the repository!`);
+                  }
+                }
+              }
+            }
