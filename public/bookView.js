@@ -62,12 +62,19 @@ function buildEditModal(book) {
             color:'primary',
             value: book.title
         },
-        authorName: {
-            label:'Author:',
-            type: 'text',
-            placeholder: 'Unknown author',
-            color:'primary',
-            value: (book.author == 'Unknown') ? null : book.author
+        authorSearch: {
+            label: 'Author:',
+            type: 'search',
+            placeholder: 'Search author name...',
+            color: 'primary',
+            value: (book.author === 'Unknown') ? null : book.author,
+            minChars: 2,
+            resultsQuery: async (query) => {
+                const res = await fetch(`/api/authors?search=${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const authors = await res.json();
+                return authors.map(a => ({ id: a.id, text: a.name }));
+            }
         },
         localNumber: {
             label: 'local number:',
@@ -113,8 +120,37 @@ function buildEditModal(book) {
 
     modal.addFields(config);
 
-
     return modal;
+}
+
+async function updateBookInfo(book, modal) {
+    const formData = new FormData();
+    formData.append('title', modal.getField('bookTitle')?.value || '');
+    
+    const authorSelection = modal.hiddenValues['authorSearch'];
+    if (authorSelection?.id) formData.append('authorId', authorSelection.id);
+    formData.append('author', authorSelection?.text || modal.getField('authorSearch')?.value || '');
+
+    formData.append('localNumber', modal.getField('localNumber')?.value || '');
+    formData.append('published', modal.getField('published')?.value || '');
+    formData.append('publisher', modal.getField('publisher')?.value || '');
+    formData.append('isbn', modal.getField('isbn')?.value || '');
+    formData.append('blurb', modal.getField('blurb')?.value || '');
+
+    const coverFile = modal.getField('bookCover')?.files?.[0];
+    if (coverFile) formData.append('cover', coverFile);
+
+    try {
+        const response = await fetch(`/api/books/${book.id}`, {
+            method: 'PUT',
+            body: formData
+        });
+        if (!response.ok) throw new Error('Failed to update book');
+        window.location.reload();
+    } catch (error) {
+        console.error('Error updating book:', error);
+        showWarning('Failed to update book');
+    }
 }
 
 async function fillModal(input) {

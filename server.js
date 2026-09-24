@@ -32,6 +32,7 @@ import usersRoute from './apiRoutes/users.js';
 import studentsRoute from './apiRoutes/students.js';
 import classesRoute from './apiRoutes/classes.js';
 import checkoutsRoute from './apiRoutes/checkouts.js';
+import authorsRoute from './apiRoutes/authors.js';
 
 app.use('/api/checkouts', checkoutsRoute);
 
@@ -44,6 +45,8 @@ app.use('/api/users', usersRoute);
 app.use('/api/students', studentsRoute);
 
 app.use('/api/classes', classesRoute);
+
+app.use('/api/authors', authorsRoute);
 
 // #endregion
 

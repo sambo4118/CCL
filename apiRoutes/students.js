@@ -92,9 +92,10 @@ const searchQuery = req.query.search;
             .leftJoin(classes, eq(students.classId, classes.id));
 
         if (searchQuery) {
+            const limit = Math.min(Number(req.query.limit) || 20, 50);
             queryBuilder = queryBuilder
                 .where(like(students.name, `%${searchQuery}%`))
-                .limit(8);
+                .limit(limit);
         }
 
         const rows = await queryBuilder;

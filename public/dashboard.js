@@ -2,19 +2,217 @@ import { showWarning, showAuthWarning, Modal } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', async () => { 
     const checkouts = await loadCheckouts()
-    const { sortBy } = await findDomElements();
+    const { sortBy, addBookButton, addCheckoutButton, addStudentButton } = await findDomElements();
     if (!checkouts) return showWarning('Failed to load checkouts.');
+    
     await renderGeneralCheckoutStats(checkouts);
     await displayCheckouts(sortCheckouts(checkouts, sortBy.value));
     
+    const bookModal = await buildBookModal();
+    
+    const addcheckoutModal = await buildNewCheckoutModal(async () => {
+        checkouts = await loadCheckouts();
+        await displayCheckouts()
+    });
 
+    addBookButton?.addEventListener('click', () => bookModal.open());
+    addCheckoutButton?.addEventListener('click', () => addcheckoutModal.open());
+    
     sortBy.addEventListener('change', async (event) => {
         const sortedCheckouts = sortCheckouts(checkouts, event.target.value);
         await displayCheckouts(sortedCheckouts);
         console.debug(`Checkouts sorted by ${event.target.value}`);
     });
 })
+
+async function addNewCheckoutConfirm(m) {
+    const student = m.hiddenValues['studentSearch'];
+    const book = m.hiddenValues['bookSearch'];
+    const duration = parseInt(m.getField('duration')?.value || '14', 10);
+    if (!student?.id || !book?.id) {
+        showWarning('Please select both a student and a book.');
+        return;
+    }
+    try {
+        const response = await fetch('/api/checkouts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                studentId: student.id,
+                bookId: book.id,
+                duration
+            })
+        });
+        if (!response.ok) throw new Error('Failed to create checkout');
+        const newCheckout = await response.json();
+        if (onCheckoutCreated) onCheckoutCreated(newCheckout);
+    } catch (error) {
+        console.error('Error creating checkout:', error);
+        showWarning('Failed to create checkout');
+    }
+}
+
+async function addNewBookConfirm(m) {
+    const formData = new FormData();
     
+    formData.append('title', m.getField('title')?.value || '');
+    const authorSelection = m.hiddenValues['authorSearch'];
+    if (authorSelection?.id) formData.append('authorId', authorSelection.id);
+    formData.append('author', authorSelection?.text || m.getField('authorSearch')?.value || '');
+    formData.append('localNumber', m.getField('localNumber')?.value || '');
+    formData.append('published', m.getField('published')?.value || '');
+    formData.append('publisher', m.getField('publisher')?.value || '');
+    formData.append('isbn', m.getField('isbn')?.value || '');
+    formData.append('blurb', m.getField('blurb')?.value || '');
+    
+    const coverFile = m.getField('cover')?.files?.[0];
+    
+    if (coverFile) formData.append('cover', coverFile);
+    
+    try {
+    
+        const response = await fetch('/api/books', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Failed to create book');
+        
+        const newBook = await response.json();
+        
+        if (typeof onBookCreated === 'function') onBookCreated(newBook);
+    
+    } catch (error) {
+    
+        console.error('Error adding book:', error);
+        showWarning('Failed to add book');
+    
+    }
+}
+
+async function buildBookModal() {
+    const modal = new Modal({title: 'Add New Book', mainColorBulmaVariable:'primary', successButtonText:'Add Book', onConfirm: async (m) => await addNewBookConfirm(m)});
+    
+    const config = {
+        isbn: {
+            label: 'ISBN# (Auto-fills info):',
+            type: 'responsive',
+            placeholder: 'Scan or type 10/13-digit ISBN...',
+            color: 'primary',
+            minChars: 10,
+            responseFunction: async (isbnValue) => {
+                if (!isbnValue) return;
+                try {
+                    const res = await fetch(`/api/books/external/${isbnValue.trim()}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (data.title && modal.getField('title')) modal.getField('title').value = data.title;
+                    if (data.authors?.length && modal.getField('authorSearch')) modal.getField('authorSearch').value = data.authors.join(', ');
+                    if (data.publisher && modal.getField('publisher')) modal.getField('publisher').value = data.publisher;
+                    if (data.publishedDate && modal.getField('published')) modal.getField('published').value = data.publishedDate.substring(0, 4);
+                    if (data.description && modal.getField('blurb')) modal.getField('blurb').value = data.description;
+                } catch (error) {
+                    console.warn('Auto-lookup failed:', error);
+                }
+            }
+        },
+        title: {
+            label: 'Title:',
+            type: 'text',
+            placeholder: 'Book title...',
+            color: 'primary'
+        },
+        authorSearch: {
+            label: 'Author:',
+            type: 'search',
+            placeholder: 'Search author name...',
+            color: 'primary',
+            minChars: 2,
+            resultsQuery: async (query) => {
+                const res = await fetch(`/api/authors?search=${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const authors = await res.json();
+                return authors.map(a => ({ id: a.id, text: a.name }));
+            }
+        },
+        localNumber: {
+            label: 'Local # / Barcode:',
+            type: 'text',
+            placeholder: 'e.g. 1042',
+            color: 'primary'
+        },
+        published: {
+            label: 'Published Year:',
+            type: 'text',
+            placeholder: 'e.g. 2024',
+            color: 'primary'
+        },
+        publisher: {
+            label: 'Publisher:',
+            type: 'text',
+            placeholder: 'Publisher name...',
+            color: 'primary'
+        },
+        blurb: {
+            label: 'Description / Blurb:',
+            type: 'textarea',
+            color: 'primary'
+        },
+        cover: {
+            label: 'Cover Image:',
+            type: 'file',
+            color: 'primary'
+        }
+    };
+    modal.addFields(config);
+    return modal;
+}
+
+async function buildNewCheckoutModal(onCheckoutCreated) {
+    const modal = new Modal({
+        title: 'New Checkout',
+        mainColorBulmaVariable: 'primary',
+        successButtonText: 'Check Out',
+        onConfirm: async (m) => await addNewCheckoutConfirm
+    });
+    const config = {
+        studentSearch: {
+            label: 'Student:',
+            type: 'search',
+            placeholder: 'Search student name...',
+            color: 'primary',
+            minChars: 2,
+            resultsQuery: async (query) => {
+                const res = await fetch(`/api/students?search=${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const students = await res.json();
+                return students.map(s => ({ id: s.id, text: `${s.name}${s.className ? ' — ' + s.className : ''}` }));
+            }
+        },
+        bookSearch: {
+            label: 'Book:',
+            type: 'search',
+            placeholder: 'Search book title or local #...',
+            color: 'primary',
+            minChars: 2,
+            resultsQuery: async (query) => {
+                const res = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const books = await res.json();
+                return books.map(b => ({ id: b.id, text: `${b.title} (${b.localNumber})` }));
+            }
+        },
+        duration: {
+            label: 'Loan Duration (Days):',
+            type: 'text',
+            value: '14',
+            placeholder: '14',
+            color: 'primary'
+        }
+    };
+    modal.addFields(config);
+    return modal;
+}
 
 async function loadCheckouts() {
     const checkoutsResponce = await fetch('/api/checkouts/outstanding');
@@ -149,7 +347,11 @@ function createCheckoutElement(checkout) {
 
     const bookTitle = document.createElement("p");
     bookTitle.className = "title is-4";
-    bookTitle.textContent = checkout.bookTitle || "Unknown Book";
+    const bookLink = document.createElement("a");
+    bookLink.href = `/books/${checkout.bookId}`;
+    bookLink.className = "has-text-white";
+    bookLink.textContent = checkout.bookTitle || "Unknown Book";
+    bookTitle.appendChild(bookLink);
 
     const authorName = document.createElement("p");
     authorName.className = "subtitle is-6 has-text-grey";
@@ -202,14 +404,19 @@ function createCheckoutElement(checkout) {
     const studentDetails = document.createElement("div");
     studentDetails.className = "content mt-4 mr-4";
 
+    const studentLink = document.createElement("a");
+    studentLink.href = `/students/${checkout.studentId}`;
+    studentLink.className = "is-block";
+
     const nameParts = (checkout.studentName || "Unknown Student").trim().split(/\s+/);
     nameParts.forEach((part) => {
         const nameLine = document.createElement("p");
         nameLine.className = "subtitle is-6 has-text-white";
         nameLine.textContent = part;
-        studentDetails.appendChild(nameLine);
+        studentLink.appendChild(nameLine);
     });
 
+    studentDetails.appendChild(studentLink);
     studentCol.appendChild(studentDetails);
 
     columns.appendChild(bookCol);

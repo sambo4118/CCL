@@ -399,6 +399,16 @@ export class Modal {
            
         })
 
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                dropdown.classList.remove('is-active');
+            }, 150);
+        });
+
+        input.addEventListener('focus', () => {
+            if (dropdownContent.children.length > 0) dropdown.classList.add('is-active');
+        });
+
         controlDiv.parentNode.replaceChild(dropdown, controlDiv)
 
         this.inputs[key] = input;
@@ -424,10 +434,12 @@ export class Modal {
             dropdownText.type = 'button';
             dropdownText.textContent = result.text;
 
-            dropdownText.addEventListener('click', () =>{
+            dropdownText.addEventListener('mousedown', (event) => {
+                event.preventDefault();
                 input.value = result.text;
                 this.hiddenValues[key] = result;
                 if (data.onSelect) data.onSelect(result);
+                dropdown.classList.remove('is-active');
                 dropdownContent.innerHTML = '';
             });
 

@@ -1,5 +1,5 @@
 import express from 'express';
-import { eq, count, inArray, notInArray, and } from 'drizzle-orm';
+import { eq, count, inArray, notInArray, and, or, like } from 'drizzle-orm';
 import { db } from '../database/index.js';
 import { classes, students } from '../database/schema.js';
 import multer from 'multer';
@@ -10,8 +10,9 @@ const classesRoute = express.Router();
 
 // GET /api/classes — list all classes with student counts
 classesRoute.get('/', async (req, res) => {
+    const searchQuery = req.query.search?.toString().trim();
     try {
-        const rows = await db
+        let queryBuilder = db
             .select({
                 id: classes.id,
                 name: classes.name,
@@ -22,6 +23,17 @@ classesRoute.get('/', async (req, res) => {
             .leftJoin(students, eq(students.classId, classes.id))
             .groupBy(classes.id);
 
+        if (searchQuery) {
+            const pattern = `%${searchQuery}%`;
+            queryBuilder = queryBuilder.where(
+                or(
+                    like(classes.name, pattern),
+                    like(classes.teacherName, pattern)
+                )
+            );
+        }
+
+        const rows = await queryBuilder;
         res.json(rows);
     } catch (error) {
         console.error('Error listing classes:', error);

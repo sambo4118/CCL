@@ -11,28 +11,27 @@
   </head>
     <body>
         <!-- NAVBAR -->
-        <div class="container mt-5">
+        <div class="container mt-5 mb-6">
             <div class="columns">
-                <div class="column is-4">
+                <div class="column is-6">
                     <div class="field">
                         <div class="control has-icons-left">
                             <input 
                                 class="input is-info" 
                                 type="text" 
-                                placeholder="Search" 
+                                placeholder="Search books, students, classes, authors..." 
                                 id="searchInput"
+                                autocomplete="off"
                             >
                             <span class="icon is-small is-left">
                                 <i class="fas fa-search"></i>
                             </span>
                         </div>
-                        <p class="help">search for books, students, authors, and more</p>
+                        <p class="help">Search for books, students, classes, authors, and more</p>
                     </div>
                 </div>
-                <div class="column is-8"></div>
             </div>
-        </div>
-        <div class="box m-1" id="searchResults">
+            <div class="box mt-4" id="searchResults" style="display: none;"></div>
         </div>
     </body>
 </html>

@@ -162,6 +162,75 @@ booksRoute.get('/:id', async (req, res) => {
     }
 });
 
+// POST /api/books — create a new book
+booksRoute.post('/', upload.single('cover'), async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+        const { title, subtitle, author, authorId, localNumber, publisher, published, isbn, bookLocation, blurb, call1, call2 } = req.body;
+        if (!title || !localNumber) {
+            return res.status(400).json({ error: 'Title and local number are required' });
+        }
 
+        const values = {
+            title: title.trim(),
+            subtitle: subtitle?.trim() || null,
+            author: author?.trim() || null,
+            authorId: authorId ? Number(authorId) : null,
+            localNumber: localNumber.trim(),
+            publisher: publisher?.trim() || null,
+            published: published ? Number(published) : null,
+            isbn: isbn?.trim() || null,
+            bookLocation: bookLocation?.trim() || null,
+            blurb: blurb?.trim() || null,
+            call1: call1?.trim() || null,
+            call2: call2?.trim() || null,
+        };
+
+        if (req.file) {
+            values.coverImage = req.file.buffer;
+        }
+
+        const [newBook] = await db.insert(books).values(values).returning();
+        return res.status(201).json(withCoverUrl(newBook));
+    } catch (error) {
+        console.error('Error creating book:', error);
+        return res.status(500).json({ error: 'Failed to create book' });
+    }
+});
+
+// PUT /api/books/:id — update a book
+booksRoute.put('/:id', upload.single('cover'), async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    try {
+        const { title, subtitle, author, authorId, localNumber, publisher, published, isbn, bookLocation, blurb, call1, call2 } = req.body;
+        const updates = {};
+        if (title !== undefined) updates.title = title.trim();
+        if (subtitle !== undefined) updates.subtitle = subtitle?.trim() || null;
+        if (author !== undefined) updates.author = author?.trim() || null;
+        if (authorId !== undefined) updates.authorId = authorId ? Number(authorId) : null;
+        if (localNumber !== undefined) updates.localNumber = localNumber.trim();
+        if (publisher !== undefined) updates.publisher = publisher?.trim() || null;
+        if (published !== undefined) updates.published = published ? Number(published) : null;
+        if (isbn !== undefined) updates.isbn = isbn?.trim() || null;
+        if (bookLocation !== undefined) updates.bookLocation = bookLocation?.trim() || null;
+        if (blurb !== undefined) updates.blurb = blurb?.trim() || null;
+        if (call1 !== undefined) updates.call1 = call1?.trim() || null;
+        if (call2 !== undefined) updates.call2 = call2?.trim() || null;
+
+        if (req.file) {
+            updates.coverImage = req.file.buffer;
+        }
+
+        const [updated] = await db.update(books).set(updates).where(eq(books.id, id)).returning();
+        if (!updated) return res.status(404).json({ error: 'Book not found' });
+        return res.json(withCoverUrl(updated));
+    } catch (error) {
+        console.error('Error updating book:', error);
+        return res.status(500).json({ error: 'Failed to update book' });
+    }
+});
 
 export default booksRoute;
