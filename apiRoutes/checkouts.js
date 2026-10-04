@@ -5,6 +5,7 @@ import { db } from '../database/index.js';
 import { checkouts, students, authors, classes, books } from '../database/schema.js';
 
 const checkoutsRoute = express.Router();
+
 const checkoutsObjectShape = {
     id: checkouts.id,
     checkoutDate: checkouts.checkoutDate,
@@ -43,6 +44,25 @@ checkoutsRoute.get('/outstanding', async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch outstanding checkouts' });
     }
 
+});
+
+checkoutsRoute.get('/book/:id', async (req, res) => {
+    if(!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    const bookId = req.params.id;
+    try {
+        const rows = await db
+        .select(checkoutsObjectShape)
+        .from(checkouts)
+        .innerJoin(students, eq(checkouts.studentId, students.id))
+        .innerJoin(books, eq(checkouts.bookId, books.id))
+        .leftJoin(classes, eq(students.classId, classes.id))
+        .where(eq(checkouts.bookId, bookId))
+        .orderBy(desc(checkouts.checkoutDate));
+        return res.json(rows);
+    } catch (error) {
+        console.error(`Failed to fetch checkouts for book id: ${bookId}`, error);
+        return res.status(500).json({ error: `Failed to fetch checkouts for book id: ${bookId}`});
+    }
 });
 
 export default checkoutsRoute;

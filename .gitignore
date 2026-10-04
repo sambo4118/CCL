@@ -2,8 +2,10 @@ database/library.db
 database/library.db-*
 .env
 authentication/sessions.db
-authentication/sessions.db-*
+authentication/sessions.*
 *.xlsx
 *.xls
 *.csv
 database/migrations/*
+*.db-shm
+*.db-wal
