@@ -227,14 +227,7 @@ async function renderGeneralCheckoutStats(checkouts) {
     const {
         outstandingCheckouts,
         dueCheckouts,
-        overdueCheckouts,
-        addBookButton,
-        addCheckoutButton,
-        sortBy,
-        sortBySelect,
-        sortByControl,
-        searchInput,
-        clearSearch
+        overdueCheckouts
     } = await findDomElements();
 
     const outstandingCount = checkouts.length;
