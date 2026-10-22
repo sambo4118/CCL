@@ -58,10 +58,35 @@ checkoutsRoute.get('/book/:id', async (req, res) => {
         .leftJoin(classes, eq(students.classId, classes.id))
         .where(eq(checkouts.bookId, bookId))
         .orderBy(desc(checkouts.checkoutDate));
-        return res.json(rows);
+        return res.json(rows.map(row => ({
+            ...row,
+            bookCoverUrl: `/api/books/${row.bookId}/cover`,
+        })));
     } catch (error) {
         console.error(`Failed to fetch checkouts for book id: ${bookId}`, error);
         return res.status(500).json({ error: `Failed to fetch checkouts for book id: ${bookId}`});
+    }
+});
+
+checkoutsRoute.get('/student/:id', async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    const studentId = req.params.id;
+    try {
+        const rows = await db
+            .select(checkoutsObjectShape)
+            .from(checkouts)
+            .innerJoin(students, eq(checkouts.studentId, students.id))
+            .innerJoin(books, eq(checkouts.bookId, books.id))
+            .leftJoin(classes, eq(students.classId, classes.id))
+            .where(eq(checkouts.studentId, studentId))
+            .orderBy(desc(checkouts.checkoutDate));
+        return res.json(rows.map(row => ({
+            ...row,
+            bookCoverUrl: `/api/books/${row.bookId}/cover`,
+        })));
+    } catch (error) {
+        console.error(`Failed to fetch checkouts for student id: ${studentId}`, error);
+        return res.status(500).json({ error: `Failed to fetch checkouts for student id: ${studentId}` });
     }
 });
 

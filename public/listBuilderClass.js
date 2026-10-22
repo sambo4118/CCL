@@ -1,7 +1,3 @@
-import { Template } from "nunjucks";
-
-
-
 // config = {
 //      right: {
 //          size: number,
@@ -31,6 +27,7 @@ export class Viewlist {
         this.emptyMessage = emptyMessage;
         this.imageConfig = imageConfig;
         this.columnsConfig = columnsConfig;
+        this.actionConfig = actionConfig;
         this.items = [];
         this.rows = [];
     }
@@ -191,7 +188,7 @@ export class Viewlist {
             }
         }
     }
-    
+
     _renderActionColumn(item, actionConfig) {
         const size = actionConfig.size ?? 1;
         const bgColor = typeof actionConfig.color === 'function'
