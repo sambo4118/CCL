@@ -88,12 +88,13 @@ export class Viewlist {
             const colEl = this._renderContentColumn(key, colData, item);
             innerColumns.appendChild(colEl);
         });
+        
         content.appendChild(innerColumns);
         mediaContent.appendChild(content);
         mediaElement.appendChild(mediaContent);
         mainCol.appendChild(mediaElement);
         rowWrapper.appendChild(mainCol);
-        // 3. Optional action column (right side button strip)
+
         if (hasAction) {
             rowWrapper.appendChild(this._renderActionColumn(item, this.actionConfig));
         }
@@ -133,7 +134,6 @@ export class Viewlist {
         col.className = `column is-${size} has-text-${align} ${colData.className ?? ''}`.trim();
         const details = document.createElement('div');
         details.className = `content mt-4 ${colData.contentClassName ?? ''}`.trim();
-        // Each column has a `lines` array of line configs
         const lines = typeof colData.lines === 'function' ? colData.lines(item) : (colData.lines ?? []);
         lines.forEach((lineConfig) => {
             const lineEl = this._renderLine(lineConfig, item);

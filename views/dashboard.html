@@ -14,71 +14,71 @@
          <section class="section">
          </section>
         <section class="section">
-            <nav class="level">
-                <div class="level-left">
-                    <div class="level-item has-text-centered">
-                        <div class="columns is-2">
-                            <div class="column has-text-centered is-5">
-                                <div class="box has-background-info">
-                                    <p class="title has-text-white is-6">Outstanding: <span id="outstandingCheckouts">...</span></p>
-                                </div>
-                            </div>
-                            <div class="column has-text-centered is-5">
-                                <div class="box has-background-warning">
-                                    <p class="title has-text-white is-6">Due Today: <span id="dueCheckouts">...</span></p>
-                                </div>
-                            </div>
-                            <div class="column has-text-centered is-5">
-                                <div class="box has-background-danger">
-                                    <p class="title has-text-white is-6">Overdue: <span id="overdueCheckouts">...</span></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="level-right">
-                    <div class="level-item">
-                        <button class="button is-primary has-text-white is-fullwidth" id="addBookButton">
-                            <span class="icon"><i class="fas fa-plus"></i></span>
-                            <span>Add Book</span>
-                        </button>
-                    </div>
-                    <div class="level-item">
-                        <button class="button is-primary has-text-white is-fullwidth" id="addCheckoutButton">
-                            <span class="icon"><i class="fas fa-plus"></i></span>
-                            <span>Add Checkout</span>
-                        </button>
-                    </div>
-                    <div class="level-item">
-                        <div class="field">
-                            <div class="control" id="sortByControl">
-                                <div class="select is-primary" id ="sortBySelect">
-                                    <select id="sortBy">
-                                        <option value="due">Due</option>
-                                        <option value="title">Title</option>
-                                        <option value="student">Student</option>
-                                        <option value="class">Class</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="level-item">
-                        <div class="field">
-                            <div class="control has-icons-right has-icons-left">
-                                <input class="input is-primary" type="text" placeholder="Search" id="searchInput">
-                                <span class="icon is-small is-left">
-                                    <i class="fas fa-search"></i>
-                                </span>
-                                <span class="icon is-small is-right">
-                                    <i class="fas fa-book" id="clearSearch"></i>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </nav>
-        </section>
+             <nav class="level is-flex-wrap-wrap">
+                 <div class="level-left">
+                     <div class="level-item has-text-centered">
+                         <div class="columns is-2" style="min-width: 480px;">
+                             <div class="column has-text-centered is-4 is-paddingless">
+                                 <div class="box has-background-info px-2">
+                                     <p class="title has-text-white is-6 has-text-centered"><span style="white-space: nowrap;">Outstanding:</span><br><span id="outstandingCheckouts">...</span></p>
+                                 </div>
+                             </div>
+                             <div class="column has-text-centered is-4 is-paddingless">
+                                 <div class="box has-background-warning px-2">
+                                     <p class="title has-text-white is-6">Due Today:<br><span id="dueCheckouts">...</span></p>
+                                 </div>
+                             </div>
+                             <div class="column has-text-centered is-4 is-paddingless">
+                                 <div class="box has-background-danger px-2">
+                                     <p class="title has-text-white is-6">Overdue:<br><span id="overdueCheckouts">...</span></p>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+                 <div class="level-right">
+                     <div class="level-item">
+                         <button class="button is-primary has-text-white is-fullwidth" id="addBookButton">
+                             <span class="icon"><i class="fas fa-plus"></i></span>
+                             <span>Add Book</span>
+                         </button>
+                     </div>
+                     <div class="level-item">
+                         <button class="button is-primary has-text-white is-fullwidth" id="addCheckoutButton">
+                             <span class="icon"><i class="fas fa-plus"></i></span>
+                             <span>Add Checkout</span>
+                         </button>
+                     </div>
+                     <div class="level-item">
+                         <div class="field">
+                             <div class="control" id="sortByControl">
+                                 <div class="select is-primary" id ="sortBySelect">
+                                     <select id="sortBy">
+                                         <option value="due">Due</option>
+                                         <option value="title">Title</option>
+                                         <option value="student">Student</option>
+                                         <option value="class">Class</option>
+                                     </select>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                     <div class="level-item">
+                         <div class="field">
+                             <div class="control has-icons-right has-icons-left">
+                                 <input class="input is-primary" type="text" placeholder="Search" id="searchInput">
+                                 <span class="icon is-small is-left">
+                                     <i class="fas fa-search"></i>
+                                 </span>
+                                 <span class="icon is-small is-right">
+                                     <i class="fas fa-book" id="clearSearch"></i>
+                                 </span>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+             </nav>
+         </section>
         <div id="checkoutsContainer" class="mr-6 ml-6">
             <!-- Checkouts will be dynamically inserted here -->
         </div>

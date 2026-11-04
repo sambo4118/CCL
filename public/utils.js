@@ -521,3 +521,54 @@ export class Modal {
     }
     
 }
+
+export function createCheckoutModal(fromType, ) {
+    if (!fromType.trim().toLowerCase() in ['book', 'class', 'student', 'author', 'none']) {
+        throw new Error('Invalid fromType.');
+    }
+
+    const modal = new Modal({
+        title: 'New Checkout',
+        mainColorBulmaVariable: 'primary',
+        successButtonText: 'Check Out',
+        onConfirm: async (m) => await addNewCheckoutConfirm
+    });
+    
+    const config = {
+        studentSearch: {
+            label: 'Student:',
+            type: 'search',
+            placeholder: 'Search student name...',
+            color: 'primary',
+            minChars: 2,
+            resultsQuery: async (query) => {
+                const res = await fetch(`/api/students?search=${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const students = await res.json();
+                return students.map(s => ({ id: s.id, text: `${s.name}${s.className ? ' — ' + s.className : ''}` }));
+            }
+        },
+        bookSearch: {
+            label: 'Book:',
+            type: 'search',
+            placeholder: 'Search book title or local #...',
+            color: 'primary',
+            minChars: 2,
+            resultsQuery: async (query) => {
+                const res = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const books = await res.json();
+                return books.map(b => ({ id: b.id, text: `${b.title} (${b.localNumber})` }));
+            }
+        },
+        duration: {
+            label: 'Loan Duration (Days):',
+            type: 'text',
+            value: '14',
+            placeholder: '14',
+            color: 'primary'
+        }
+    };
+    modal.addFields(config);
+    return modal;
+}

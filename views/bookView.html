@@ -44,9 +44,20 @@
                 </article>
             </div>
         </div>
-        </div class="container mt-5">
-            <!-- checkout list -->
-             
+        <div class="container mt-3">
+            <div class="columns m-2">
+                <div class="column has-background-primary" style = "border-radius: 0.5rem 0 0 0.5rem;">
+                    <div class="content">
+                        <p class="title is-4" id="checkoutStatus">loading...</p>
+                        <p class="subtitle is-6" id="checkoutInfo">This Books checkout status is loading...</p>
+                    </div>
+                </div>
+                <div class="column is-1 has-background-success p-2 is-flex is-justify-content-center is-align-items-center" style = "border-radius: 0 0.5rem 0.5rem 0;">
+                    <button class="button is-success is-fullwidth has-text-white has-text-weight-extra-bold" style="width: 100%; height: 100%;" id="checkoutButton">
+                        <span class="icon is-medium"><i class="fas fa-solid fa-right-to-bracket"></i></span>
+                    </button>
+                </div>
+            </div>
         </div>
     </body>
     <div class="modal" id="editBookInfoModal">

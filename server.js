@@ -16,9 +16,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const IP_ADDRESS = process.env.IP_ADDRESS || 'localhost';
 
-setupSessionStore(app);
-setupPassport(app);
-setupAuthRoutes(app, sendPage, __dirname);
+if (process.env.NODE_ENV === 'development') {
+    app.use((req, res, next) => {
+        req.user = {
+            email: 'developer@localhost',
+            name: 'Developer',
+            picture: null,
+            domain: null
+        };
+        req.isAuthenticated = () => true;
+        next();
+    });
+} else {
+    setupSessionStore(app);
+    setupPassport(app);
+    setupAuthRoutes(app, sendPage, __dirname);
+}
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));

@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         let book = await loadBookDetails(bookId);
         book = cleanBook(book);
+        book.checkout = await getRecentCheckout(bookId);
         displayBookDetails(book);
         const modal = buildEditModal(book);
     } catch (err) {
@@ -21,10 +22,8 @@ function cleanBook(book) {
     return book;
 }
 
-
-
 function displayBookDetails(book) {
-    const { cover, title, author, year, publisher, isbn, blurb, localnumber } = getDetailElements();
+    const { cover, title, author, year, publisher, isbn, blurb, localnumber, checkoutButton, checkoutStatus, checkoutInfo } = getDetailElements();
     cover.src = book.coverUrl;
     title.textContent = book.title ?? 'untitled';
     author.textContent = book.author ?? 'Unknown';
@@ -33,6 +32,15 @@ function displayBookDetails(book) {
     isbn.textContent = book.isbn ? `ISBN: ${book.isbn}` : "";
     blurb.textContent = book.blurb ?? "";
     localnumber.textContent = book.localNumber;
+    checkoutStatus.textContent = book.checkout ? 'Checked Out' : 'Available';
+    if (!book.checkout) {
+        checkoutInfo.innerHTML = '';
+        return;
+    }
+
+    const dueDate = new Date(book.checkout.checkoutDate);
+    dueDate.setDate(dueDate.getDate() + (book.checkout.duration ?? 14));
+    checkoutInfo.innerHTML = `<p>Checked out by: ${book.checkout.studentName ?? 'Unknown Student'}</p><p>Due date: ${dueDate.toLocaleDateString()}</p>`;
 }
 
 function getDetailElements() {
@@ -44,7 +52,10 @@ function getDetailElements() {
     const isbn = document.getElementById('bookISBN');
     const blurb = document.getElementById('bookBlurb');
     const localnumber = document.getElementById('bookLocalnumber');
-    return { cover, title, author, year, publisher, isbn, blurb, localnumber };
+    const checkoutButton = document.getElementById('checkoutBookButton');
+    const checkoutStatus = document.getElementById('checkoutStatus');
+    const checkoutInfo = document.getElementById('checkoutInfo');
+    return { cover, title, author, year, publisher, isbn, blurb, localnumber, checkoutButton, checkoutStatus, checkoutInfo };
 }
 
 function buildEditModal(book) {
@@ -163,3 +174,15 @@ async function fillModal(input) {
     console.log('bookInfo', bookInfo);
     return true;
 } 
+
+function getRecentCheckout(bookId) {
+    return fetch(`/api/checkouts/book/${bookId}/recent`)
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to fetch recent checkout');
+            return res.json();
+        })
+        .catch(err => {
+            console.error('Error fetching recent checkout:', err);
+            return null;
+        });
+}

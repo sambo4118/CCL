@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { like, eq, isNull, desc } from 'drizzle-orm';
+import { and, eq, isNull, desc } from 'drizzle-orm';
 import { db } from '../database/index.js';
 import { checkouts, students, authors, classes, books } from '../database/schema.js';
 
@@ -46,6 +46,7 @@ checkoutsRoute.get('/outstanding', async (req, res) => {
 
 });
 
+// GET /api/checkouts/book/:id — list all checkouts for a specific book
 checkoutsRoute.get('/book/:id', async (req, res) => {
     if(!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
     const bookId = req.params.id;
@@ -68,6 +69,35 @@ checkoutsRoute.get('/book/:id', async (req, res) => {
     }
 });
 
+// GET /api/checkouts/book/:id/recent — get the most recent checkout for a specific book
+checkoutsRoute.get('/book/:id/recent', async (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const bookId = req.params.id;
+
+    try {
+        const rows = await db
+            .select(checkoutsObjectShape)
+            .from(checkouts)
+            .innerJoin(students, eq(checkouts.studentId, students.id))
+            .innerJoin(books, eq(checkouts.bookId, books.id))
+            .leftJoin(classes, eq(students.classId, classes.id))
+            .where(and(eq(checkouts.bookId, bookId), isNull(checkouts.returnDate)))
+            .orderBy(desc(checkouts.checkoutDate))
+            .limit(1);
+
+        return res.json(rows[0] ?? null);
+    } catch (error) {
+        console.error(`Failed to fetch recent checkout for book id: ${bookId}`, error);
+        return res.status(500).json({
+            error: `Failed to fetch recent checkout for book id: ${bookId}`
+        });
+    }
+});
+
+// GET /api/checkouts/student/:id — list all checkouts for a specific student
 checkoutsRoute.get('/student/:id', async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
     const studentId = req.params.id;
