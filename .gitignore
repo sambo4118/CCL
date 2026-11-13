@@ -1,5 +1,6 @@
 database/library.db
 database/library.db-*
+database/backups/
 .env
 authentication/sessions.db
 authentication/sessions.*

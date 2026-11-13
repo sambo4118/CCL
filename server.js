@@ -6,6 +6,7 @@ import 'dotenv/config';
 import { setupSessionStore, setupPassport, setupAuthRoutes } from './authentication/auth.js';
 
 function sendPage(res, file) {
+    const navbar = fs.readFileSync(path.join(__dirname, 'views', 'navbar.html'), 'utf-8');
     let html = fs.readFileSync(path.join(__dirname, 'views', file), 'utf-8');
     html = html.replace('<!-- NAVBAR -->', navbar);
     res.type('html').send(html);
@@ -46,6 +47,8 @@ import studentsRoute from './apiRoutes/students.js';
 import classesRoute from './apiRoutes/classes.js';
 import checkoutsRoute from './apiRoutes/checkouts.js';
 import authorsRoute from './apiRoutes/authors.js';
+import backupsRoute from './apiRoutes/backups.js';
+import { startAutomaticBackups } from './services/backupService.js';
 
 app.use('/api/checkouts', checkoutsRoute);
 
@@ -61,10 +64,9 @@ app.use('/api/classes', classesRoute);
 
 app.use('/api/authors', authorsRoute);
 
-// #endregion
+app.use('/api/backups', backupsRoute);
 
-// add navbar to the top
-const navbar = fs.readFileSync(path.join(__dirname, 'views', 'navbar.html'), 'utf-8');
+// #endregion
 
 // #region Page Routes
 
@@ -75,6 +77,13 @@ app.get('/settings', (req, res) => {
         return res.redirect('/?denied=settings');
     }
     sendPage(res, 'settings.html');
+});
+
+app.get(['/check-inventory', '/checkInventory', '/inventory'], (req, res) => {
+    if (!req.isAuthenticated()) {
+        return res.redirect('/?denied=settings');
+    }
+    sendPage(res, 'checkInventory.html');
 });
 
 app.get('/dashboard', (req, res) => sendPage(res, 'dashboard.html'));
@@ -91,4 +100,5 @@ app.get('/students/:id', (req, res) => sendPage(res, 'studentView.html'));
 
 app.listen(PORT, IP_ADDRESS, () => {
     console.log(`Server running on http://${IP_ADDRESS}:${PORT}`);
+    startAutomaticBackups();
 });

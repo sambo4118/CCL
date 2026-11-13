@@ -1,20 +1,50 @@
 import { showWarning, showAuthWarning } from "./utils.js";
 
-document.addEventListener('DOMContentLoaded', () => {
+function initNavbar() {
     const burgers = document.querySelectorAll('.navbar-burger');
     burgers.forEach(b => {
-        b.addEventListener('click', () => {
-        const target = document.getElementById(b.dataset.target);
-        b.classList.toggle('is-active');
-        target?.classList.toggle('is-active');
+        b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const target = document.getElementById(b.dataset.target);
+            const isActive = b.classList.toggle('is-active');
+            b.setAttribute('aria-expanded', String(isActive));
+            target?.classList.toggle('is-active', isActive);
         });
     });
+
     const dropdowns = document.querySelectorAll('.navbar-item.has-dropdown');
     dropdowns.forEach(d => {
-        d.addEventListener('click', () => {
-        d.classList.toggle('is-active');
+        const trigger = d.querySelector('.navbar-link') || d;
+        trigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            d.classList.toggle('is-active');
         });
     });
+
+    // Close the mobile navbar dropdown when clicking outside or pressing Escape
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('.navbar')) return;
+        burgers.forEach(b => {
+            const target = document.getElementById(b.dataset.target);
+            b.classList.remove('is-active');
+            b.setAttribute('aria-expanded', 'false');
+            target?.classList.remove('is-active');
+        });
+        dropdowns.forEach(d => d.classList.remove('is-active'));
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        burgers.forEach(b => {
+            const target = document.getElementById(b.dataset.target);
+            b.classList.remove('is-active');
+            b.setAttribute('aria-expanded', 'false');
+            target?.classList.remove('is-active');
+        });
+        dropdowns.forEach(d => d.classList.remove('is-active'));
+    });
+
     initAuthGatedNav();
     populateClassesDropdown();
 
@@ -27,7 +57,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const cleanUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
         window.history.replaceState({}, '', cleanUrl);
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initNavbar);
+} else {
+    initNavbar();
+}
 
 let cachedAuth = null;
 

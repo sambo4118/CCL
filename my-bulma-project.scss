@@ -44,4 +44,342 @@ $neutral-color-dark : #2e2e2e;
   }
 }
 
+@media screen and (max-width: 1023px) {
+  .navbar {
+    position: relative;
+
+    .navbar-menu {
+      position: absolute;
+      top: calc(100% + 0.375rem);
+      inset-inline-end: 0.75rem;
+      min-width: 13.5rem;
+      width: max-content;
+      max-width: calc(100vw - 1.5rem);
+      padding: 0.75rem;
+      background-color: var(--bulma-scheme-main);
+      border: 1px solid var(--bulma-border);
+      border-radius: var(--bulma-radius-large);
+      box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.5);
+      z-index: 40;
+    }
+
+    .navbar-start,
+    .navbar-end {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .navbar-end {
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--bulma-border-weak);
+    }
+
+    .navbar-menu .navbar-item,
+    .navbar-menu .navbar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--bulma-radius);
+      color: var(--bulma-text-strong);
+    }
+
+    .navbar-menu a.navbar-item:hover,
+    .navbar-menu .navbar-link:hover {
+      background-color: var(--bulma-background-hover);
+    }
+
+    .navbar-menu .navbar-item.has-dropdown {
+      display: block;
+      padding: 0;
+    }
+
+    .navbar-menu .navbar-link:not(.is-arrowless) {
+      padding-inline-end: 2.25rem;
+
+      &::after {
+        display: block;
+        border-color: var(--bulma-text-weak);
+        inset-inline-end: 0.875rem;
+        transition: transform var(--bulma-duration) var(--bulma-easing), border-color var(--bulma-duration) var(--bulma-easing);
+      }
+    }
+
+    .navbar-menu .navbar-item.has-dropdown.is-active .navbar-link:not(.is-arrowless)::after {
+      transform: rotate(135deg) translate(0.15em, -0.15em);
+      border-color: var(--bulma-text-strong);
+    }
+
+    .navbar-menu .navbar-dropdown {
+      display: none;
+      padding: 0.25rem 0 0.25rem 0.75rem;
+      margin-inline-start: 1.125rem;
+      margin-top: 0.25rem;
+      border-inline-start: 2px solid var(--bulma-border);
+      max-height: 14rem;
+      overflow-y: auto;
+
+      .navbar-item {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.9rem;
+      }
+    }
+
+    .navbar-menu .navbar-item.has-dropdown.is-active .navbar-dropdown {
+      display: block;
+    }
+
+    #authSection {
+      justify-content: center;
+      padding: 0.25rem 0 0;
+
+      .buttons,
+      .button {
+        width: 100%;
+        margin: 0;
+        justify-content: center;
+      }
+    }
+  }
+}
+
+/* Dashboard & Viewlist responsive / container-query compression */
+.dashboard-controls-section {
+  container: dashboard-controls / inline-size;
+}
+
+.dashboard-stats-columns {
+  min-inline-size: 480px;
+}
+
+.dashboard-toolbar {
+  align-items: safe center;
+  gap: 0.75rem;
+
+  .dashboard-actions {
+    display: flex;
+    flex-flow: row wrap;
+    flex-wrap: balance;
+    align-items: safe center;
+    gap: 0.5rem;
+
+    .level-item {
+      margin-block-end: 0;
+      margin-inline-end: 0;
+    }
+  }
+}
+
+.viewlist-row {
+  container: viewlist-row / inline-size;
+
+  .viewlist-main,
+  .viewlist-media-content,
+  .viewlist-col {
+    min-inline-size: 0;
+  }
+
+  .viewlist-media-content {
+    overflow-x: clip;
+  }
+}
+
+@mixin compact-dashboard-controls {
+  .dashboard-stats {
+    display: none !important;
+  }
+
+  .dashboard-toolbar {
+    justify-content: center;
+
+    .dashboard-actions {
+      inline-size: 100%;
+      justify-content: center;
+      margin-block-start: 0 !important;
+      gap: 0.375rem;
+
+      .level-item {
+        flex: 0 1 auto;
+        margin-block-end: 0 !important;
+      }
+
+      .dashboard-search-item {
+        flex: 1 1 10rem;
+        max-inline-size: 16rem;
+
+        .field,
+        .control,
+        .input {
+          inline-size: 100%;
+        }
+      }
+
+      .button,
+      .select select,
+      .input {
+        font-size: clamp(0.75rem, 2.8vw, 0.875rem);
+        padding-block: 0.3rem;
+        padding-inline: 0.55rem;
+        height: 2.15rem;
+      }
+
+      .select select {
+        padding-inline-end: 1.75rem;
+      }
+
+      .control.has-icons-left .input {
+        padding-inline-start: 2rem;
+      }
+
+      .control.has-icons-right .input {
+        padding-inline-end: 2rem;
+      }
+
+      .control.has-icons-left .icon,
+      .control.has-icons-right .icon {
+        height: 2.15rem;
+        width: 2rem;
+      }
+
+      @supports (font-size: 1cqi) {
+        .button,
+        .select select,
+        .input {
+          font-size: clamp(0.75rem, 2.8cqi, 0.875rem);
+        }
+      }
+    }
+  }
+}
+
+@mixin compact-viewlist-row {
+  .viewlist-main {
+    flex: 1 1 0 !important;
+    width: auto !important;
+    padding: 0.5rem !important;
+  }
+
+  .viewlist-action {
+    flex: 0 0 2.35rem !important;
+    width: 2.35rem !important;
+    min-inline-size: 2.35rem;
+    padding: 0.25rem !important;
+
+    .button {
+      padding: 0.25rem;
+    }
+
+    .icon {
+      font-size: 0.85rem;
+    }
+  }
+
+  .viewlist-media-left {
+    margin-inline-end: 0.5rem !important;
+
+    .viewlist-cover {
+      margin: 0.125rem !important;
+      width: 52px !important;
+      height: 70px !important;
+
+      img {
+        width: 52px !important;
+        height: 70px !important;
+      }
+    }
+  }
+
+  .viewlist-inner-columns {
+    margin-inline: -0.25rem !important;
+    margin-block: 0 !important;
+  }
+
+  .viewlist-col {
+    padding: 0.25rem !important;
+    padding-inline-end: 0.25rem !important;
+  }
+
+  .viewlist-details {
+    margin-block-start: 0.125rem !important;
+    margin-inline-end: 0 !important;
+
+    .title {
+      font-size: clamp(0.85rem, 3.2vw, 1.1rem) !important;
+      line-height: 1.2;
+      margin-block-end: 0.2rem !important;
+      overflow-wrap: anywhere;
+    }
+
+    .subtitle,
+    p {
+      font-size: clamp(0.7rem, 2.4vw, 0.85rem) !important;
+      line-height: 1.2;
+      margin-block-end: 0.125rem !important;
+      overflow-wrap: anywhere;
+    }
+
+    .title + .subtitle {
+      margin-block-start: 0 !important;
+    }
+
+    @supports (font-size: 1cqi) {
+      .title {
+        font-size: clamp(0.85rem, 3.2cqi, 1.1rem) !important;
+      }
+
+      .subtitle,
+      p {
+        font-size: clamp(0.7rem, 2.4cqi, 0.85rem) !important;
+      }
+    }
+  }
+
+  .viewlist-edit-wrapper {
+    margin-block-end: 0.15rem !important;
+
+    .viewlist-edit-btn {
+      padding: 0.15rem 0.4rem;
+      height: auto;
+      min-height: 1.5rem;
+      font-size: 0.75rem;
+
+      .icon {
+        width: 1rem;
+        height: 1rem;
+      }
+    }
+  }
+}
+
+/* Fallback media queries for phone-sized viewports */
+@media screen and (max-width: 768px) {
+  .dashboard-controls-section {
+    padding-block: 0.75rem !important;
+    padding-inline: 0.75rem !important;
+    @include compact-dashboard-controls;
+  }
+
+  #checkoutsContainer {
+    margin-inline: 0.5rem !important;
+  }
+
+  .viewlist-row {
+    margin-block-end: 0.625rem !important;
+    @include compact-viewlist-row;
+  }
+}
+
+/* Progressive enhancement with container queries where supported */
+@supports (container-type: inline-size) {
+  @container dashboard-controls (max-width: 700px) {
+    @include compact-dashboard-controls;
+  }
+
+  @container viewlist-row (max-width: 680px) {
+    @include compact-viewlist-row;
+  }
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');

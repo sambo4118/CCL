@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CCL — Check Inventory</title>
+    <link rel="icon" type="image/png" href="/images/cca-icon.png">
+    <link rel="stylesheet" href="/css/my-bulma-project.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="module" src="/navbar.js"></script>
+    <script type="module" src="/checkInventory.js"></script>
+    <style>
+      #localNumberInput:user-invalid,
+      #localNumberInput.user-invalid-fallback {
+        border-color: #d93025;
+      }
+
+      #localNumberInput:user-valid,
+      #localNumberInput.user-valid-fallback {
+        border-color: #188038;
+      }
+
+      #localNumberInput:focus-visible {
+        outline: 3px solid hsl(var(--bulma-warning-h), var(--bulma-warning-s), var(--bulma-warning-l));
+        outline-offset: 2px;
+      }
+
+      .inventory-stat-box {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .scan-pulse {
+        animation: scanFlash 0.35s ease-out;
+      }
+
+      @keyframes scanFlash {
+        0% {
+          transform: scale(1.015);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- NAVBAR -->
+    <section class="section pt-5 pb-6">
+      <div class="container">
+        <!-- Top Header & Quick Actions -->
+        <div class="box has-background-primary mb-5">
+          <div class="level is-flex-wrap-wrap" style="gap: 1rem;">
+            <div class="level-left">
+              <div class="level-item">
+                <div>
+                  <h1 class="title is-3 has-text-white mb-1">
+                    <span class="icon-text">
+                      <span class="icon has-text-warning mr-2">
+                        <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>
+                      </span>
+                      <span>Check Inventory</span>
+                    </span>
+                  </h1>
+                  <p class="subtitle is-6 has-text-light mb-0" id="inventorySubtitle">
+                    Scan or enter each book's Local # to count shelf inventory. Progress saves automatically.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div class="level-right">
+              <div class="level-item">
+                <div class="buttons">
+                  <button type="button" class="button is-info has-text-white" id="addBookButton">
+                    <span class="icon"><i class="fas fa-plus" aria-hidden="true"></i></span>
+                    <span>Add Book</span>
+                  </button>
+                  <button type="button" class="button is-warning has-text-white has-text-weight-semibold" id="finishInventoryButton">
+                    <span class="icon"><i class="fa-solid fa-list-check" aria-hidden="true"></i></span>
+                    <span id="finishInventoryButtonText">Finish &amp; Get Unscanned Books</span>
+                  </button>
+                  <button type="button" class="button is-danger is-outlined" id="resetInventoryButton" title="Clear scanned books and start a new inventory session">
+                    <span class="icon"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></span>
+                    <span>Reset Session</span>
+                  </button>
+                  <a class="button is-dark" href="/settings">
+                    <span class="icon"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></span>
+                    <span>Settings</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats & Progress Row -->
+        <div class="columns is-multiline is-mobile mb-5" id="inventoryStatsGrid">
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered inventory-stat-box">
+              <span class="icon is-large has-text-success mb-1">
+                <i class="fas fa-2x fa-circle-check" aria-hidden="true"></i>
+              </span>
+              <p class="heading has-text-info-light">Valid Books Scanned</p>
+              <p class="title is-2 has-text-white mb-0" id="validScannedCount">0</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered inventory-stat-box">
+              <span class="icon is-large has-text-info mb-1">
+                <i class="fas fa-2x fa-book" aria-hidden="true"></i>
+              </span>
+              <p class="heading has-text-info-light">Total Library Books</p>
+              <p class="title is-2 has-text-white mb-0" id="totalCatalogCount">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered inventory-stat-box">
+              <span class="icon is-large has-text-warning mb-1">
+                <i class="fas fa-2x fa-hourglass-half" aria-hidden="true"></i>
+              </span>
+              <p class="heading has-text-info-light">Remaining Unscanned</p>
+              <p class="title is-2 has-text-white mb-0" id="remainingBooksCount">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered inventory-stat-box">
+              <span class="icon is-large has-text-warning mb-1">
+                <i class="fas fa-2x fa-chart-line" aria-hidden="true"></i>
+              </span>
+              <p class="heading has-text-info-light">Completion</p>
+              <p class="title is-3 has-text-white mb-2" id="inventoryPercentStat">0%</p>
+              <progress class="progress is-warning is-small mb-0" id="inventoryProgressBar" value="0" max="100">0%</progress>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scanner / Local Number Check Box -->
+        <div class="box has-background-primary mb-5">
+          <form id="scanBookForm" action="/api/books" method="GET" novalidate>
+            <div class="field">
+              <label class="label is-size-5 has-text-white mb-1" for="localNumberInput">
+                Scan or Enter Book Local Number
+              </label>
+              <p id="localNumberHint" class="help has-text-grey-light mt-0 mb-3">
+                Scan a book barcode or type its Local # (e.g. <code>6888</code> or <code>20220617</code>) and press Enter or click Check Book.
+              </p>
+              <div class="columns is-variable is-2 is-vcentered">
+                <div class="column">
+                  <div class="control has-icons-left" id="localNumberControl">
+                    <input
+                      class="input is-medium is-warning"
+                      type="text"
+                      id="localNumberInput"
+                      name="localNumber"
+                      placeholder="Enter or scan book Local #..."
+                      required
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                      enterkeyhint="go"
+                      aria-describedby="localNumberHint scanFeedbackBanner"
+                    >
+                    <span class="icon is-left">
+                      <i class="fa-solid fa-barcode" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                </div>
+                <div class="column is-narrow">
+                  <button type="submit" class="button is-medium is-warning has-text-white has-text-weight-bold is-fullwidth" id="checkLocalNumberButton">
+                    <span class="icon"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+                    <span>Check Book</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <!-- Live Scan Status / Feedback Banner -->
+          <div id="scanFeedbackBanner" class="notification is-hidden mt-4 mb-0" role="status" aria-live="polite"></div>
+
+          <!-- Recently Scanned Books Drawer -->
+          <div class="mt-4 pt-3" style="border-top: 1px solid rgba(255, 255, 255, 0.12);">
+            <div class="level is-mobile mb-2">
+              <div class="level-left">
+                <div class="level-item">
+                  <button
+                    type="button"
+                    class="button is-small is-dark"
+                    id="toggleRecentScansButton"
+                    aria-expanded="true"
+                    aria-controls="recentScansPanel"
+                  >
+                    <span class="icon is-small"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></span>
+                    <span>Recent Scans (<span id="recentScansBadge">0</span>)</span>
+                    <span class="icon is-small ml-1"><i class="fa-solid fa-chevron-up" id="recentScansChevron" aria-hidden="true"></i></span>
+                  </button>
+                </div>
+              </div>
+              <div class="level-right">
+                <div class="level-item">
+                  <span class="is-size-7 has-text-grey-light" id="sessionTimestampText"></span>
+                </div>
+              </div>
+            </div>
+
+            <div id="recentScansPanel">
+              <div id="recentScansContainer" class="columns is-multiline is-mobile is-variable is-1 mt-1">
+                <div class="column">
+                  <p class="is-size-7 has-text-grey-light">No books scanned in this session yet.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Unscanned Books Section (Revealed when user clicks Finish & Get Unscanned Books) -->
+        <section id="unscannedSection" class="is-hidden" aria-labelledby="unscannedSectionTitle">
+          <div class="box has-background-primary mb-4">
+            <div class="level is-flex-wrap-wrap mb-4" style="gap: 0.75rem;">
+              <div class="level-left">
+                <div class="level-item">
+                  <div>
+                    <h2 class="title is-4 has-text-white mb-1" id="unscannedSectionTitle">
+                      <span class="icon-text">
+                        <span class="icon has-text-warning mr-2"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+                        <span>Unscanned Books Report</span>
+                      </span>
+                    </h2>
+                    <p class="subtitle is-6 has-text-light mb-0" id="unscannedSummaryText">
+                      Showing books that were not scanned during this inventory check.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="level-right">
+                <div class="level-item">
+                  <div class="buttons">
+                    <button type="button" class="button is-info has-text-white" id="exportUnscannedCsvButton">
+                      <span class="icon"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></span>
+                      <span>Export Unscanned CSV</span>
+                    </button>
+                    <button type="button" class="button is-dark" id="hideUnscannedButton">
+                      <span class="icon"><i class="fa-solid fa-eye-slash" aria-hidden="true"></i></span>
+                      <span>Hide Report</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Filter & Sort Controls for Unscanned Books -->
+            <div class="columns is-multiline is-variable is-2 is-vcentered">
+              <div class="column is-5-desktop is-12-tablet">
+                <div class="field mb-0">
+                  <label class="label is-small has-text-info-light" for="unscannedSearchInput">Filter Unscanned Books</label>
+                  <div class="control has-icons-left">
+                    <input
+                      class="input is-info"
+                      type="text"
+                      id="unscannedSearchInput"
+                      name="unscannedSearch"
+                      placeholder="Filter by title, author, Local #, ISBN, or location..."
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                    >
+                    <span class="icon is-small is-left">
+                      <i class="fas fa-search" aria-hidden="true"></i>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="column is-4-desktop is-6-tablet">
+                <div class="field mb-0">
+                  <label class="label is-small has-text-info-light" for="unscannedStatusFilter">Checkout Status</label>
+                  <div class="control">
+                    <div class="select is-info is-fullwidth">
+                      <select id="unscannedStatusFilter" name="unscannedStatusFilter">
+                        <option value="all">All Unscanned Books</option>
+                        <option value="available">Missing from Shelf (Not Checked Out)</option>
+                        <option value="checkedOut">Currently Checked Out to Student</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="column is-3-desktop is-6-tablet">
+                <div class="field mb-0">
+                  <label class="label is-small has-text-info-light" for="unscannedSortBy">Sort By</label>
+                  <div class="control">
+                    <div class="select is-info is-fullwidth">
+                      <select id="unscannedSortBy" name="unscannedSortBy">
+                        <option value="localNumber">Local #</option>
+                        <option value="title">Title (A–Z)</option>
+                        <option value="author">Author (A–Z)</option>
+                        <option value="location">Location / Call #</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Top Pagination Bar -->
+            <div class="level is-mobile mt-4 mb-0 pt-3" style="border-top: 1px solid rgba(255, 255, 255, 0.12);" id="unscannedTopPagination">
+              <div class="level-left">
+                <div class="level-item">
+                  <p class="is-size-7 has-text-light" id="unscannedPageInfoTop">Showing 0 books</p>
+                </div>
+              </div>
+              <div class="level-right">
+                <div class="level-item">
+                  <div class="buttons are-small mb-0">
+                    <button type="button" class="button is-dark" id="prevPageTopButton" disabled>
+                      <span class="icon is-small"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></span>
+                      <span>Prev</span>
+                    </button>
+                    <button type="button" class="button is-dark" id="nextPageTopButton" disabled>
+                      <span>Next</span>
+                      <span class="icon is-small"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Viewlist Container for Unscanned Books -->
+          <div id="unscannedBooksContainer" class="mb-4"></div>
+
+          <!-- Bottom Pagination Bar -->
+          <div class="box has-background-primary py-3 px-4" id="unscannedBottomPagination">
+            <div class="level is-mobile">
+              <div class="level-left">
+                <div class="level-item">
+                  <p class="is-size-7 has-text-light" id="unscannedPageInfoBottom">Showing 0 books</p>
+                </div>
+              </div>
+              <div class="level-right">
+                <div class="level-item">
+                  <div class="buttons are-small mb-0">
+                    <button type="button" class="button is-dark" id="prevPageBottomButton" disabled>
+                      <span class="icon is-small"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></span>
+                      <span>Prev</span>
+                    </button>
+                    <button type="button" class="button is-dark" id="nextPageBottomButton" disabled>
+                      <span>Next</span>
+                      <span class="icon is-small"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </body>
+</html>

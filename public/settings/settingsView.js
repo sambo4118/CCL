@@ -3,6 +3,7 @@ import { setupImportStudents } from './uploadStudents.js';
 import { setupManageUsers } from './manageUsers.js';
 import { setupAddClasses } from './addClasses.js';
 import { setupAddStudents } from './addStudents.js';
+import { setupManageBackups } from './manageBackups.js';
 
 function loadBooks() {
     const modal = document.getElementById('importBooksModal');
@@ -86,5 +87,14 @@ document.addEventListener('DOMContentLoaded', () => {
     setupManageUsers();
     setupAddClasses();
     setupAddStudents();
+    setupManageBackups();
+
+    const checkInventoryButton = document.getElementById('checkInventoryButton');
+    checkInventoryButton?.addEventListener('click', (e) => {
+        if (checkInventoryButton.tagName !== 'A') {
+            e.preventDefault();
+            window.location.href = '/check-inventory';
+        }
+    });
 });
 

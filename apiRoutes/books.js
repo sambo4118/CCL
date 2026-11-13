@@ -204,6 +204,22 @@ booksRoute.get('/external/:isbn', async (req, res) => {
 
 });
 
+// GET /api/books/local/:localNumber — find book(s) by exact localNumber
+booksRoute.get('/local/:localNumber', async (req, res) => {
+    const rawLocal = req.params.localNumber?.toString().trim();
+    if (!rawLocal) return res.status(400).json({ error: 'Missing local number' });
+    try {
+        const matches = await db
+            .select(bookListColumns)
+            .from(books)
+            .where(eq(books.localNumber, rawLocal));
+        res.json(matches.map(withCoverUrl));
+    } catch (error) {
+        console.error('Error looking up book by local number:', error);
+        res.status(500).json({ error: 'Failed to look up book by local number' });
+    }
+});
+
 // GET /api/books/:id — fetch a single book
 booksRoute.get('/:id', async (req, res) => {
     const id = Number(req.params.id);

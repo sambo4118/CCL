@@ -231,6 +231,21 @@ async function loadCheckouts() {
     return checkouts;
 }
 
+function getCheckoutDiffDays(checkout) {
+    const due = new Date(checkout.checkoutDate);
+    due.setDate(due.getDate() + Number(checkout.duration ?? 14));
+    const today = new Date();
+    return Math.round((due.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+}
+
+function getCheckoutStatusColor(checkout) {
+    if (checkout.returnDate) return 'success';
+    const diffDays = getCheckoutDiffDays(checkout);
+    if (diffDays < 0) return 'danger';
+    if (diffDays === 0) return 'warning';
+    return 'success';
+}
+
 async function renderGeneralCheckoutStats(checkouts) { 
     const {
         outstandingCheckouts,
@@ -239,8 +254,8 @@ async function renderGeneralCheckoutStats(checkouts) {
     } = await findDomElements();
 
     const outstandingCount = checkouts.length;
-    const dueCount = checkouts.filter(c => new Date(c.checkoutDate).toDateString() === new Date().toDateString()).length;
-    const overdueCount = checkouts.filter(c => new Date(c.checkoutDate) < new Date()).length;
+    const dueCount = checkouts.filter(c => !c.returnDate && getCheckoutDiffDays(c) === 0).length;
+    const overdueCount = checkouts.filter(c => !c.returnDate && getCheckoutDiffDays(c) < 0).length;
     
     outstandingCheckouts.textContent = outstandingCount;
     dueCheckouts.textContent = dueCount;
@@ -280,9 +295,9 @@ async function findDomElements() {
 function buildCheckoutList(onCheckoutReturned = null) {
     const actionConfig = {
         size: 1,
-        buttonColor: 'danger',
+        buttonColor: getCheckoutStatusColor,
         iconClass: 'fas fa-check fa-lg',
-        color: (checkout) => checkout.returnDate ? 'success' : (new Date(checkout.checkoutDate) < new Date() ? 'danger' : 'warning'),
+        color: getCheckoutStatusColor,
         onClick: (checkout) => {
             const modal = createReturnModal(checkout, onCheckoutReturned);
             modal.open();
@@ -322,10 +337,7 @@ function buildCheckoutList(onCheckoutReturned = null) {
                         if (checkout.returnDate) {
                             return `Returned: ${new Date(checkout.returnDate).toLocaleDateString()}`;
                         }
-                        const due = new Date(checkout.checkoutDate);
-                        due.setDate(due.getDate() + (checkout.duration ?? 14));
-                        const today = new Date();
-                        const diffDays = Math.round((due.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24));
+                        const diffDays = getCheckoutDiffDays(checkout);
 
                         let dueLabel = `Due in: ${diffDays} days`;
                         if (diffDays === 0) dueLabel = 'Due today';
@@ -389,7 +401,7 @@ function sortCheckouts(list, sortBy) {
         case 'class':
             return (a.className || '').localeCompare(b.className || '');
         }
-        // 'due' (default): oldest checkout dates first (most urgent/overdue at top)
-        return new Date(a.checkoutDate) - new Date(b.checkoutDate);
+        // 'due' (default): most urgent/overdue due dates at top
+        return getCheckoutDiffDays(a) - getCheckoutDiffDays(b);
     });
 }

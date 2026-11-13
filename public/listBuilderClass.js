@@ -68,24 +68,24 @@ export class Viewlist {
         const mainColSize = hasAction ? (12 - (this.actionConfig.size ?? 1)) : 12;
         // 1. Outer row wrapper
         const rowWrapper = document.createElement('div');
-        rowWrapper.className = 'columns is-gapless is-mobile mb-4';
+        rowWrapper.className = 'columns is-gapless is-mobile mb-4 viewlist-row';
         // 2. Main content column (left side)
         const mainCol = document.createElement('div');
-        mainCol.className = `column is-${mainColSize} has-background-${this.baseColor} p-4`;
+        mainCol.className = `column is-${mainColSize} has-background-${this.baseColor} p-4 viewlist-main`;
         mainCol.style.borderRadius = hasAction ? '0.5rem 0 0 0.5rem' : '0.5rem';
         const mediaElement = document.createElement('article');
-        mediaElement.className = 'media';
+        mediaElement.className = 'media viewlist-media';
         // Optional left image (e.g. Book Cover)
         if (this.imageConfig) {
             mediaElement.appendChild(this._renderMediaLeft(item, this.imageConfig));
         }
         // Inner columns container
         const mediaContent = document.createElement('div');
-        mediaContent.className = 'media-content';
+        mediaContent.className = 'media-content viewlist-media-content';
         const content = document.createElement('div');
         content.className = 'content';
         const innerColumns = document.createElement('div');
-        innerColumns.className = 'columns is-mobile';
+        innerColumns.className = 'columns is-mobile viewlist-inner-columns';
         const colEntries = Object.entries(this.columnsConfig);
         colEntries.forEach(([key, colData], index) => {
             const isRightmostCol = colEntries.length > 1 && index === colEntries.length - 1;
@@ -123,9 +123,9 @@ export class Viewlist {
         const src = typeof imgConfig.src === 'function' ? imgConfig.src(item) : item[imgConfig.srcKey];
         const alt = typeof imgConfig.alt === 'function' ? imgConfig.alt(item) : (imgConfig.alt ?? 'Cover image');
         const mediaLeft = document.createElement('figure');
-        mediaLeft.className = 'media-left';
+        mediaLeft.className = 'media-left viewlist-media-left';
         const imgContainer = document.createElement('p');
-        imgContainer.className = 'image ml-4 mt-4 mb-4';
+        imgContainer.className = 'image ml-4 mt-4 mb-4 viewlist-cover';
         imgContainer.style.width = width;
         imgContainer.style.height = height;
         const img = document.createElement('img');
@@ -134,6 +134,7 @@ export class Viewlist {
         img.loading = 'lazy';
         img.style.width = width;
         img.style.height = height;
+        img.style.aspectRatio = '3 / 4';
         img.style.objectFit = 'fill';
         img.addEventListener('error', () => {
             if (img.src !== placeholder) img.src = placeholder;
@@ -146,7 +147,7 @@ export class Viewlist {
         const size = colData.size ?? 4;
         const align = colData.align ?? 'left'; // 'left' | 'centered' | 'right'
         const col = document.createElement('div');
-        col.className = `column is-${size} has-text-${align} ${colData.className ?? ''}`.trim();
+        col.className = `column is-${size} has-text-${align} viewlist-col viewlist-col-${key} ${colData.className ?? ''}`.trim();
 
         const editBtn = (isRightmostCol && this.editConfig)
             ? this._renderEditButton(item, this.editConfig)
@@ -156,7 +157,7 @@ export class Viewlist {
         }
 
         const details = document.createElement('div');
-        details.className = `content ${editBtn ? 'mt-2' : 'mt-4'} ${colData.contentClassName ?? ''}`.trim();
+        details.className = `content viewlist-details ${editBtn ? 'mt-2' : 'mt-4'} ${colData.contentClassName ?? ''}`.trim();
         const lines = typeof colData.lines === 'function' ? colData.lines(item) : (colData.lines ?? []);
         lines.forEach((lineConfig) => {
             const lineEl = this._renderLine(lineConfig, item);
@@ -174,14 +175,14 @@ export class Viewlist {
         if (config.show === false) return null;
 
         const wrapper = document.createElement('div');
-        wrapper.className = 'is-flex is-justify-content-flex-end mb-2';
+        wrapper.className = 'is-flex is-justify-content-flex-end mb-2 viewlist-edit-wrapper';
 
         const btn = document.createElement('button');
         btn.type = 'button';
 
         const rawColor = config.buttonColor ?? config.color;
         const buttonColor = typeof rawColor === 'function' ? rawColor(item) : rawColor;
-        btn.className = `button ${buttonColor ? `is-${buttonColor}` : ''} ${config.className ?? ''}`.trim();
+        btn.className = `button viewlist-edit-btn ${buttonColor ? `is-${buttonColor}` : ''} ${config.className ?? ''}`.trim();
 
         if (config.title) {
             btn.title = typeof config.title === 'function' ? config.title(item) : config.title;
@@ -269,7 +270,7 @@ export class Viewlist {
             ? actionConfig.buttonColor(item)
             : (actionConfig.buttonColor ?? 'danger');
         const rightCol = document.createElement('div');
-        rightCol.className = `column is-${size} has-background-${bgColor} p-2 is-flex is-justify-content-center is-align-items-center`;
+        rightCol.className = `column is-${size} has-background-${bgColor} p-2 is-flex is-justify-content-center is-align-items-center viewlist-action`;
         rightCol.style.borderRadius = '0 0.5rem 0.5rem 0';
         const btn = document.createElement('button');
         btn.className = `button is-${buttonColor} is-fullwidth has-text-white has-text-weight-extra-bold`;
