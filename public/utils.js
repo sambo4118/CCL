@@ -1,4 +1,4 @@
-export function showWarning(message, {object = null, onConfirm = null, onCancel = null }) {
+export function showWarning(message, {object = null, onConfirm = null, onCancel = null } = {}) {
     console.warn(`Warning: ${message}`, object);
 
     const warningModal = document.createElement('div');
@@ -24,8 +24,8 @@ export function showWarning(message, {object = null, onConfirm = null, onCancel 
         warningModal.remove()
     }
 
-    if (!onConfirm) onConfirm = () => closeModal;
-    if (!onCancel) onCancel = () => closeModal;
+    if (!onConfirm) onConfirm = () => closeModal();
+    if (!onCancel) onCancel = () => closeModal();
 
     warningModal.querySelectorAll('.modal-background, .modal-close, .modal-card-head .delete, .modal-card-foot .button').forEach((close) => {
         close.addEventListener('click', closeModal);
@@ -36,7 +36,7 @@ export function showWarning(message, {object = null, onConfirm = null, onCancel 
     const confirmButton = modalFooter.querySelector('.conf-btn');
     confirmButton.addEventListener('click', () => {
         onConfirm();
-        closeModal;
+        closeModal();
     });
 
     const cancelButton = modalFooter.querySelector('.canc-btn');;
@@ -224,6 +224,7 @@ export class Modal {
     constructor({mainColorBulmaVariable, successButtonText, title, onConfirm}) {
 
         if (!mainColorBulmaVariable) mainColorBulmaVariable = "success";
+        this.mainColorBulmaVariable = mainColorBulmaVariable;
 
         this.configKeys = [];
         this.isOpen = false;
@@ -272,8 +273,11 @@ export class Modal {
         this.successButton.textContent = successButtonText ?? "Save";
 
         // 6. Bind Event Listeners
-        this.successButton.addEventListener('click', () => {
-            if (onConfirm) onConfirm(this);
+        this.successButton.addEventListener('click', async () => {
+            if (onConfirm) {
+                const shouldClose = await onConfirm(this);
+                if (shouldClose === false) return;
+            }
             this.close();
         });
 
@@ -312,6 +316,10 @@ export class Modal {
                     break;
                 case 'chips':
                     this._renderChipsField(key, data, controlDiv);
+                    break;
+                case 'responsive':
+                    this._renderResponsiveField(key, data, controlDiv);
+                    break;
                 default:
                     this._renderStandardField(key, data, controlDiv);
                     break;
@@ -339,12 +347,12 @@ export class Modal {
         return { fieldContainer: field, controlDiv: control };
     }
     
-    // types = text, password, email, tel: no special data
+    // types = text, password, email, tel, textarea: no special data
     _renderStandardField(key, data, controlDiv) {
-        
-        const input = document.createElement('input');
-        input.className = `input is-${data.color ?? this.mainColorBulmaVariable}`;
-        input.type = data.type ?? 'text';
+        const isTextarea = data.type === 'textarea';
+        const input = document.createElement(isTextarea ? 'textarea' : 'input');
+        input.className = `${isTextarea ? 'textarea' : 'input'} is-${data.color ?? this.mainColorBulmaVariable}`;
+        if (!isTextarea) input.type = data.type ?? 'text';
         input.placeholder = data.placeholder ?? '';
         if (data.value) input.value = data.value;
 
@@ -363,13 +371,13 @@ export class Modal {
         dropdown.innerHTML = (
             `<div class="field">
                 <div class="control">
-                    <input class="input is-${data.color ?? this.mainColorBulmaVariable}" type="text" placeholder="${data.placeholder}">
+                    <input class="input is-${data.color ?? this.mainColorBulmaVariable}" type="text" placeholder="${data.placeholder ?? ''}">
                 </div>
             </div>
             <div class="dropdown-menu" role="menu">
                 <div class="dropdown-content">
                 
-                </div)
+                </div>
             </div>
             `
         );
@@ -385,6 +393,10 @@ export class Modal {
 
         const input = dropdown.querySelector('.input');
         const dropdownContent = dropdown.querySelector('.dropdown-content');
+
+        if (data.value) input.value = data.value;
+        if (data.hiddenValue) this.hiddenValues[key] = data.hiddenValue;
+        if (data.disabled) input.disabled = true;
 
         input.addEventListener('input', (event) => {
             const value = event.target.value;
@@ -522,16 +534,85 @@ export class Modal {
     
 }
 
-export function createCheckoutModal(fromType, ) {
-    if (!fromType.trim().toLowerCase() in ['book', 'class', 'student', 'author', 'none']) {
+export async function addNewCheckoutConfirm(m, onCheckoutCreated = null) {
+    const student = m.hiddenValues['studentSearch'];
+    const book = m.hiddenValues['bookSearch'];
+    const duration = parseInt(m.getField('duration')?.value || '14', 10);
+    if (!student?.id || !book?.id) {
+        showWarning('Please select both a student and a book.');
+        return false;
+    }
+    try {
+        // Verify the book does not already have an active checkout
+        const activeRes = await fetch(`/api/checkouts/book/${book.id}/recent`);
+        if (activeRes.ok) {
+            const activeCheckout = await activeRes.json();
+            if (activeCheckout && !activeCheckout.returnDate) {
+                showWarning(`"${book.text || 'This book'}" is already checked out to ${activeCheckout.studentName || 'another student'}.`);
+                return false;
+            }
+        }
+
+        const response = await fetch('/api/checkouts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                studentId: student.id,
+                bookId: book.id,
+                duration
+            })
+        });
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || 'Failed to create checkout');
+        }
+        const newCheckout = await response.json();
+        if (typeof onCheckoutCreated === 'function') await onCheckoutCreated(newCheckout);
+        return newCheckout;
+    } catch (error) {
+        console.error('Error creating checkout:', error);
+        showWarning(error.message || 'Failed to create checkout');
+        return false;
+    }
+}
+
+export function createCheckoutModal(fromType = 'none', presetData = null, onCheckoutCreated = null) {
+    const normalizedType = (fromType ?? 'none').trim().toLowerCase();
+    if (!['book', 'class', 'student', 'author', 'none'].includes(normalizedType)) {
         throw new Error('Invalid fromType.');
     }
+
+    // Support passing either (fromType, entity, onConfirm) or (fromType, { book, student, onConfirm })
+    let bookPreset = null;
+    let studentPreset = null;
+    let onConfirmCallback = onCheckoutCreated;
+
+    if (typeof presetData === 'function') {
+        onConfirmCallback = presetData;
+    } else if (presetData && typeof presetData === 'object') {
+        if (presetData.book || presetData.student || presetData.onConfirm) {
+            bookPreset = presetData.book ?? null;
+            studentPreset = presetData.student ?? null;
+            onConfirmCallback = presetData.onConfirm ?? onCheckoutCreated;
+        } else if (normalizedType === 'book') {
+            bookPreset = presetData;
+        } else if (normalizedType === 'student') {
+            studentPreset = presetData;
+        }
+    }
+
+    const studentText = studentPreset
+        ? `${studentPreset.name}${studentPreset.className || studentPreset.grade ? ' — ' + (studentPreset.className || studentPreset.grade) : ''}`
+        : '';
+    const bookText = bookPreset
+        ? `${bookPreset.title}${bookPreset.localNumber ? ` (${bookPreset.localNumber})` : ''}`
+        : '';
 
     const modal = new Modal({
         title: 'New Checkout',
         mainColorBulmaVariable: 'primary',
         successButtonText: 'Check Out',
-        onConfirm: async (m) => await addNewCheckoutConfirm
+        onConfirm: async (m) => await addNewCheckoutConfirm(m, onConfirmCallback)
     });
     
     const config = {
@@ -541,6 +622,8 @@ export function createCheckoutModal(fromType, ) {
             placeholder: 'Search student name...',
             color: 'primary',
             minChars: 2,
+            value: studentText,
+            hiddenValue: studentPreset ? { id: studentPreset.id, text: studentText } : null,
             resultsQuery: async (query) => {
                 const res = await fetch(`/api/students?search=${encodeURIComponent(query)}`);
                 if (!res.ok) return [];
@@ -554,8 +637,10 @@ export function createCheckoutModal(fromType, ) {
             placeholder: 'Search book title or local #...',
             color: 'primary',
             minChars: 2,
+            value: bookText,
+            hiddenValue: bookPreset ? { id: bookPreset.id, text: bookText } : null,
             resultsQuery: async (query) => {
-                const res = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`);
+                const res = await fetch(`/api/books/search?q=${encodeURIComponent(query)}&available=true`);
                 if (!res.ok) return [];
                 const books = await res.json();
                 return books.map(b => ({ id: b.id, text: `${b.title} (${b.localNumber})` }));
@@ -572,3 +657,145 @@ export function createCheckoutModal(fromType, ) {
     modal.addFields(config);
     return modal;
 }
+
+export function createReturnModal(checkout, onReturned = null) {
+    const modal = new Modal({
+        title: 'Return Checkout?',
+        mainColorBulmaVariable: 'warning',
+        successButtonText: 'Return',
+        onConfirm: async (_) => {
+            const result = await returnCheckout(checkout);
+            if (result && typeof onReturned === 'function') {
+                await onReturned(result);
+            }
+            return result;
+        }
+    });
+    return modal;
+}
+
+export async function returnCheckout(checkout) {
+    const responce = await fetch(`/api/checkouts/${checkout.id}/return`, { method: 'POST' });
+    if (!responce.ok) {
+        console.error('Error returning checkout:', responce);
+        showWarning('Error returning checkout', { object: responce });
+        return false;
+    }
+    const data = await responce.json();
+    return data;
+}
+
+export async function updateCheckoutConfirm(checkout, m, onCheckoutUpdated = null) {
+    const student = m.hiddenValues['studentSearch'];
+    const book = m.hiddenValues['bookSearch'];
+    const studentId = student?.id ?? checkout.studentId;
+    const bookId = book?.id ?? checkout.bookId;
+    const duration = parseInt(m.getField('duration')?.value || String(checkout.duration ?? 14), 10);
+    const checkoutDate = m.getField('checkoutDate')?.value?.trim() || checkout.checkoutDate;
+    const returnDateRaw = m.getField('returnDate')?.value?.trim() ?? '';
+    const returnDate = returnDateRaw === '' ? null : returnDateRaw;
+
+    if (!studentId || !bookId) {
+        showWarning('Please select both a student and a book.');
+        return false;
+    }
+
+    try {
+        const response = await fetch(`/api/checkouts/${checkout.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                studentId,
+                bookId,
+                duration,
+                checkoutDate,
+                returnDate
+            })
+        });
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || 'Failed to update checkout');
+        }
+        const updatedCheckout = await response.json();
+        if (typeof onCheckoutUpdated === 'function') await onCheckoutUpdated(updatedCheckout);
+        return updatedCheckout;
+    } catch (error) {
+        console.error('Error updating checkout:', error);
+        showWarning(error.message || 'Failed to update checkout');
+        return false;
+    }
+}
+
+export function createEditCheckoutModal(checkout, onCheckoutUpdated = null) {
+    const studentText = checkout.studentName
+        ? `${checkout.studentName}${checkout.className ? ' — ' + checkout.className : ''}`
+        : '';
+    const bookText = checkout.bookTitle
+        ? `${checkout.bookTitle}${checkout.localNumber ? ` (${checkout.localNumber})` : ''}`
+        : '';
+
+    const modal = new Modal({
+        title: `Edit Checkout${checkout.bookTitle ? ` — ${checkout.bookTitle}` : ''}`,
+        mainColorBulmaVariable: 'primary',
+        successButtonText: 'Save',
+        onConfirm: async (m) => await updateCheckoutConfirm(checkout, m, onCheckoutUpdated)
+    });
+
+    const config = {
+        studentSearch: {
+            label: 'Student:',
+            type: 'search',
+            placeholder: 'Search student name...',
+            color: 'primary',
+            minChars: 2,
+            value: studentText,
+            hiddenValue: checkout.studentId ? { id: checkout.studentId, text: studentText } : null,
+            resultsQuery: async (query) => {
+                const res = await fetch(`/api/students?search=${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const students = await res.json();
+                return students.map(s => ({ id: s.id, text: `${s.name}${s.className ? ' — ' + s.className : ''}` }));
+            }
+        },
+        bookSearch: {
+            label: 'Book:',
+            type: 'search',
+            placeholder: 'Search book title or local #...',
+            color: 'primary',
+            minChars: 2,
+            value: bookText,
+            hiddenValue: checkout.bookId ? { id: checkout.bookId, text: bookText } : null,
+            resultsQuery: async (query) => {
+                const res = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`);
+                if (!res.ok) return [];
+                const books = await res.json();
+                return books.map(b => ({ id: b.id, text: `${b.title} (${b.localNumber})` }));
+            }
+        },
+        duration: {
+            label: 'Loan Duration (Days):',
+            type: 'text',
+            value: String(checkout.duration ?? 14),
+            placeholder: '14',
+            color: 'primary'
+        },
+        checkoutDate: {
+            label: 'Checkout Date:',
+            type: 'text',
+            value: checkout.checkoutDate ?? '',
+            placeholder: 'YYYY-MM-DD HH:MM:SS',
+            color: 'primary'
+        },
+        returnDate: {
+            label: 'Return Date (blank if still checked out):',
+            type: 'text',
+            value: checkout.returnDate ?? '',
+            placeholder: 'Leave blank if active...',
+            color: 'primary'
+        }
+    };
+    modal.addFields(config);
+    return modal;
+}
+
+

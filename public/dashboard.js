@@ -1,4 +1,4 @@
-import { showWarning, showAuthWarning, Modal } from './utils.js';
+import { showWarning, showAuthWarning, Modal, createCheckoutModal, createReturnModal, createEditCheckoutModal } from './utils.js';
 import { Viewlist } from './listBuilderClass.js';
 
 document.addEventListener('DOMContentLoaded', async () => { 
@@ -6,18 +6,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     const { sortBy, addBookButton, addCheckoutButton, addStudentButton } = await findDomElements();
     if (!checkouts) return showWarning('Failed to load checkouts.');
     
-    const checkoutList = buildCheckoutList();
+    let checkoutList;
+    const refreshCheckouts = async () => {
+        checkouts = await loadCheckouts();
+        if (!checkouts) return;
+        await renderGeneralCheckoutStats(checkouts);
+        checkoutList.render(sortCheckouts(checkouts, sortBy.value));
+    };
+
+    checkoutList = buildCheckoutList(refreshCheckouts);
 
     await renderGeneralCheckoutStats(checkouts);
     checkoutList.render(sortCheckouts(checkouts, sortBy.value));
     
     const bookModal = await buildBookModal();
     
-    const addcheckoutModal = await buildNewCheckoutModal(async () => {
-        checkouts = await loadCheckouts();
-        checkoutList.render(sortCheckouts(checkouts, sortBy.value));
-    });
-
+    const addcheckoutModal = createCheckoutModal('none', null, refreshCheckouts);
+    
     addBookButton?.addEventListener('click', () => bookModal.open());
     addCheckoutButton?.addEventListener('click', () => addcheckoutModal.open());
     
@@ -272,12 +277,25 @@ async function findDomElements() {
     }
 }
 
-function buildCheckoutList() {
+function buildCheckoutList(onCheckoutReturned = null) {
     const actionConfig = {
         size: 1,
         buttonColor: 'danger',
         iconClass: 'fas fa-check fa-lg',
-        color: (checkout) => checkout.returnDate ? 'success' : (new Date(checkout.checkoutDate) < new Date() ? 'danger' : 'warning')
+        color: (checkout) => checkout.returnDate ? 'success' : (new Date(checkout.checkoutDate) < new Date() ? 'danger' : 'warning'),
+        onClick: (checkout) => {
+            const modal = createReturnModal(checkout, onCheckoutReturned);
+            modal.open();
+        }
+    };
+
+    const editConfig = {
+        iconClass: 'fas fa-solid fa-pen-to-square',
+        title: 'Edit Checkout',
+        onClick: (checkout) => {
+            const modal = createEditCheckoutModal(checkout, onCheckoutReturned);
+            modal.open();
+        }
     };
 
     const columnsConfig = {
@@ -353,6 +371,7 @@ function buildCheckoutList() {
             alt: (checkout) => `${checkout.bookTitle ?? 'Book'} cover`
         },
         actionConfig,
+        editConfig,
         columnsConfig
     });
 

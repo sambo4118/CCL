@@ -16,6 +16,7 @@ export class Viewlist {
         emptyMessage = 'No items found.',
         imageConfig = null,
         actionConfig = null,
+        editConfig = null,
         columnsConfig = {}
     }) {
 
@@ -28,6 +29,7 @@ export class Viewlist {
         this.imageConfig = imageConfig;
         this.columnsConfig = columnsConfig;
         this.actionConfig = actionConfig;
+        this.editConfig = editConfig;
         this.items = [];
         this.rows = [];
     }
@@ -84,14 +86,27 @@ export class Viewlist {
         content.className = 'content';
         const innerColumns = document.createElement('div');
         innerColumns.className = 'columns is-mobile';
-        Object.entries(this.columnsConfig).forEach(([key, colData]) => {
-            const colEl = this._renderContentColumn(key, colData, item);
+        const colEntries = Object.entries(this.columnsConfig);
+        colEntries.forEach(([key, colData], index) => {
+            const isRightmostCol = colEntries.length > 1 && index === colEntries.length - 1;
+            const colEl = this._renderContentColumn(key, colData, item, isRightmostCol);
             innerColumns.appendChild(colEl);
         });
         
         content.appendChild(innerColumns);
         mediaContent.appendChild(content);
         mediaElement.appendChild(mediaContent);
+
+        if (this.editConfig && colEntries.length <= 1) {
+            const editBtn = this._renderEditButton(item, this.editConfig);
+            if (editBtn) {
+                const mediaRight = document.createElement('div');
+                mediaRight.className = 'media-right';
+                mediaRight.appendChild(editBtn);
+                mediaElement.appendChild(mediaRight);
+            }
+        }
+
         mainCol.appendChild(mediaElement);
         rowWrapper.appendChild(mainCol);
 
@@ -127,13 +142,21 @@ export class Viewlist {
         mediaLeft.appendChild(imgContainer);
         return mediaLeft;
     }
-        _renderContentColumn(key, colData, item) {
+    _renderContentColumn(key, colData, item, isRightmostCol = false) {
         const size = colData.size ?? 4;
         const align = colData.align ?? 'left'; // 'left' | 'centered' | 'right'
         const col = document.createElement('div');
         col.className = `column is-${size} has-text-${align} ${colData.className ?? ''}`.trim();
+
+        const editBtn = (isRightmostCol && this.editConfig)
+            ? this._renderEditButton(item, this.editConfig)
+            : null;
+        if (editBtn) {
+            col.appendChild(editBtn);
+        }
+
         const details = document.createElement('div');
-        details.className = `content mt-4 ${colData.contentClassName ?? ''}`.trim();
+        details.className = `content ${editBtn ? 'mt-2' : 'mt-4'} ${colData.contentClassName ?? ''}`.trim();
         const lines = typeof colData.lines === 'function' ? colData.lines(item) : (colData.lines ?? []);
         lines.forEach((lineConfig) => {
             const lineEl = this._renderLine(lineConfig, item);
@@ -141,6 +164,54 @@ export class Viewlist {
         });
         col.appendChild(details);
         return col;
+    }
+
+    _renderEditButton(item, editConfig = this.editConfig) {
+        if (!editConfig) return null;
+
+        const config = typeof editConfig === 'function' ? { onClick: editConfig } : editConfig;
+        if (typeof config.show === 'function' && !config.show(item)) return null;
+        if (config.show === false) return null;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'is-flex is-justify-content-flex-end mb-2';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+
+        const rawColor = config.buttonColor ?? config.color;
+        const buttonColor = typeof rawColor === 'function' ? rawColor(item) : rawColor;
+        btn.className = `button ${buttonColor ? `is-${buttonColor}` : ''} ${config.className ?? ''}`.trim();
+
+        if (config.title) {
+            btn.title = typeof config.title === 'function' ? config.title(item) : config.title;
+        }
+
+        const iconClass = typeof config.iconClass === 'function'
+            ? config.iconClass(item)
+            : (config.iconClass ?? 'fas fa-solid fa-pen-to-square');
+        if (iconClass) {
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'icon';
+            const icon = document.createElement('i');
+            icon.className = iconClass;
+            iconSpan.appendChild(icon);
+            btn.appendChild(iconSpan);
+        }
+
+        const textValue = typeof config.text === 'function' ? config.text(item) : config.text;
+        if (textValue) {
+            const textSpan = document.createElement('span');
+            textSpan.textContent = textValue;
+            btn.appendChild(textSpan);
+        }
+
+        if (typeof config.onClick === 'function') {
+            btn.addEventListener('click', (e) => config.onClick(item, e));
+        }
+
+        wrapper.appendChild(btn);
+        return wrapper;
     }
 
     _renderLine(lineConfig, item) {

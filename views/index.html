@@ -4,19 +4,112 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CCL</title>
-    <link rel="icon" type="image/svg+xml" href="/images/cca_icon.png">
+    <link rel="icon" type="image/png" href="/images/cca-icon.png">
     <link rel="stylesheet" href="/css/my-bulma-project.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script type="module" src="./navbar.js"></script>
-    <script type="module" src="./frontPage.js"></script>
+    <script type="module" src="./frontpage.js"></script>
   </head>
   <body>
     <!-- NAVBAR -->
     <div class="section">
       <div class="container">
-        <div class="box has-background-info">
+        <div class="box has-background-info mb-5">
           <h1 class="title has-text-info-light">Welcome to the CCA Library!</h1>
-          <p class="subtitle" id="subtitle"></p>
+          <p class="subtitle has-text-light" id="subtitle">Loading library catalog...</p>
+        </div>
+
+        <h2 class="title is-4 mb-4">
+          <span class="icon-text">
+            <span class="icon has-text-info"><i class="fas fa-chart-pie"></i></span>
+            <span>Library Stats</span>
+          </span>
+        </h2>
+
+        <div class="columns is-multiline is-mobile mb-6" id="statsGrid">
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered" style="height: 100%;">
+              <span class="icon is-large has-text-info mb-2">
+                <i class="fas fa-2x fa-book"></i>
+              </span>
+              <p class="heading has-text-info-light">Total Books</p>
+              <p class="title is-3 has-text-white" id="totalBooksStat">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered" style="height: 100%;">
+              <span class="icon is-large has-text-success mb-2">
+                <i class="fas fa-2x fa-book-open"></i>
+              </span>
+              <p class="heading has-text-info-light">Available Books</p>
+              <p class="title is-3 has-text-white" id="availableBooksStat">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered" style="height: 100%;">
+              <span class="icon is-large has-text-info mb-2">
+                <i class="fas fa-2x fa-right-left"></i>
+              </span>
+              <p class="heading has-text-info-light">Total Checkouts</p>
+              <p class="title is-3 has-text-white" id="totalCheckoutsStat">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered" style="height: 100%;">
+              <span class="icon is-large has-text-warning mb-2">
+                <i class="fas fa-2x fa-book-open-reader"></i>
+              </span>
+              <p class="heading has-text-info-light">Currently Checked Out</p>
+              <p class="title is-3 has-text-white" id="activeCheckoutsStat">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered" style="height: 100%;">
+              <span class="icon is-large has-text-success mb-2">
+                <i class="fas fa-2x fa-rotate-left"></i>
+              </span>
+              <p class="heading has-text-info-light">Returned Checkouts</p>
+              <p class="title is-3 has-text-white" id="returnedCheckoutsStat">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered" style="height: 100%;">
+              <span class="icon is-large has-text-info mb-2">
+                <i class="fas fa-2x fa-user-graduate"></i>
+              </span>
+              <p class="heading has-text-info-light">Students</p>
+              <p class="title is-3 has-text-white" id="totalStudentsStat">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered" style="height: 100%;">
+              <span class="icon is-large has-text-info mb-2">
+                <i class="fas fa-2x fa-feather-pointed"></i>
+              </span>
+              <p class="heading has-text-info-light">Authors</p>
+              <p class="title is-3 has-text-white" id="totalAuthorsStat">...</p>
+            </div>
+          </div>
+          <div class="column is-3-desktop is-6-tablet is-6-mobile">
+            <div class="box has-background-primary has-text-centered" style="height: 100%;">
+              <span class="icon is-large has-text-info mb-2">
+                <i class="fas fa-2x fa-chalkboard-user"></i>
+              </span>
+              <p class="heading has-text-info-light">Classes</p>
+              <p class="title is-3 has-text-white" id="totalClassesStat">...</p>
+            </div>
+          </div>
+        </div>
+
+        <h2 class="title is-4 mb-4">
+          <span class="icon-text">
+            <span class="icon has-text-warning"><i class="fas fa-trophy"></i></span>
+            <span>Top 5 Most Checked Out Books (Available Now)</span>
+          </span>
+        </h2>
+
+        <div id="topBooksContainer">
+          <!-- Top 5 available books will be dynamically inserted here -->
         </div>
       </div>
     </div>

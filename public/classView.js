@@ -289,4 +289,32 @@ function customizeModalFields(modal, targetClass) {
     inputCol.appendChild(searchDropdown);
     rowWrapper.appendChild(inputCol);
     rowWrapper.appendChild(btnCol);
+
+    if (modal.footButtons && targetClass?.class?.id) {
+        const deleteClassBtn = document.createElement('button');
+        deleteClassBtn.type = 'button';
+        deleteClassBtn.className = 'button is-danger has-text-white';
+        deleteClassBtn.textContent = 'Delete Class';
+        deleteClassBtn.addEventListener('click', () => {
+            showWarning(`Are you sure you want to delete class <strong>${targetClass.class.name}</strong>? Students in this class will be unassigned.`, {
+                onConfirm: async () => {
+                    try {
+                        const res = await fetch(`/api/classes/${targetClass.class.id}`, {
+                            method: 'DELETE',
+                            credentials: 'include'
+                        });
+                        if (!res.ok) {
+                            const errData = await res.json().catch(() => ({}));
+                            throw new Error(errData.error || 'Failed to delete class');
+                        }
+                        modal.close();
+                        window.location.href = '/search';
+                    } catch (error) {
+                        showWarning(error.message || 'Failed to delete class');
+                    }
+                }
+            });
+        });
+        modal.footButtons.appendChild(deleteClassBtn);
+    }
 }

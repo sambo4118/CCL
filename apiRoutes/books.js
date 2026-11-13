@@ -1,8 +1,8 @@
 import express from 'express';
 import multer from 'multer';
-import { eq, count, like, or } from 'drizzle-orm';
+import { eq, count, like, or, and, isNull, notInArray, desc } from 'drizzle-orm';
 import { db } from '../database/index.js';
-import { books } from '../database/schema.js';
+import { books, checkouts } from '../database/schema.js';
 import { importBooks } from '../services/importBooks.js';
 import { getBookCover } from '../services/getBookCovers.js';
 import { fetchBookInfoExternal } from '../services/fetchBookInfoExternal.js';
@@ -57,32 +57,88 @@ booksRoute.get('/', async (req, res) => {
     }
 });
 
-// GET /api/books/count — count all books
+// GET /api/books/count — count all books (public, no auth required)
 booksRoute.get('/count', async (req, res) => {
     try {
-        const [result] = await db.select({ count: count() }).from(books);
-        res.json({ count: Number(result?.count ?? 0) });
+        const activeCheckoutsSubquery = db
+            .select({ bookId: checkouts.bookId })
+            .from(checkouts)
+            .where(isNull(checkouts.returnDate));
+
+        const [[totalResult], [availableResult]] = await Promise.all([
+            db.select({ count: count() }).from(books),
+            db.select({ count: count() }).from(books).where(notInArray(books.id, activeCheckoutsSubquery)),
+        ]);
+
+        res.json({
+            count: Number(totalResult?.count ?? 0),
+            availableCount: Number(availableResult?.count ?? 0),
+        });
     } catch (error) {
         console.error('Error counting books:', error);
         res.status(500).json({ error: 'Failed to count books' });
     }
 });
 
+// GET /api/books/top — top N most checked out books that are not currently checked out (public, no auth required)
+booksRoute.get('/top', async (req, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 5, 1), 50);
+    try {
+        const activeCheckoutsSubquery = db
+            .select({ bookId: checkouts.bookId })
+            .from(checkouts)
+            .where(isNull(checkouts.returnDate));
+
+        const rows = await db
+            .select({
+                ...bookListColumns,
+                checkoutCount: count(checkouts.id),
+            })
+            .from(books)
+            .leftJoin(checkouts, eq(books.id, checkouts.bookId))
+            .where(notInArray(books.id, activeCheckoutsSubquery))
+            .groupBy(books.id)
+            .orderBy(desc(count(checkouts.id)))
+            .limit(limit);
+
+        res.json(rows.map(row => ({
+            ...withCoverUrl(row),
+            checkoutCount: Number(row.checkoutCount ?? 0),
+        })));
+    } catch (error) {
+        console.error('Error fetching top available books:', error);
+        res.status(500).json({ error: 'Failed to fetch top books' });
+    }
+});
+
 // SEARCH /api/books/search?q=... — search books
 booksRoute.get('/search', async (req, res) => {
     const q = req.query.q?.toString().trim();
+    const onlyAvailable = req.query.available === 'true';
     if (!q) return res.status(400).json({ error: 'Missing search query' });
     try {
         const pattern = `%${q}%`;
-        const results = await db.select(bookListColumns).from(books).where(
-            or(
-                like(books.title, pattern),
-                like(books.author, pattern),
-                like(books.isbn, pattern),
-                like(books.publisher, pattern),
-                like(books.localNumber, pattern),
-            )
+        const searchCondition = or(
+            like(books.title, pattern),
+            like(books.author, pattern),
+            like(books.isbn, pattern),
+            like(books.publisher, pattern),
+            like(books.localNumber, pattern),
         );
+
+        let whereClause = searchCondition;
+        if (onlyAvailable) {
+            const activeCheckouts = await db
+                .select({ bookId: checkouts.bookId })
+                .from(checkouts)
+                .where(isNull(checkouts.returnDate));
+            const checkedOutBookIds = activeCheckouts.map(c => c.bookId);
+            if (checkedOutBookIds.length > 0) {
+                whereClause = and(searchCondition, notInArray(books.id, checkedOutBookIds));
+            }
+        }
+
+        const results = await db.select(bookListColumns).from(books).where(whereClause);
         res.json(results.map(withCoverUrl));
     } catch (error) {
         console.error('Error searching books:', error);

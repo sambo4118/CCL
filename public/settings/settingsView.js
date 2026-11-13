@@ -1,6 +1,8 @@
 import { setupImportBooks } from './uploadBooks.js';
 import { setupImportStudents } from './uploadStudents.js';
 import { setupManageUsers } from './manageUsers.js';
+import { setupAddClasses } from './addClasses.js';
+import { setupAddStudents } from './addStudents.js';
 
 function loadBooks() {
     const modal = document.getElementById('importBooksModal');
@@ -82,5 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupImportBooks();
     setupImportStudents();
     setupManageUsers();
+    setupAddClasses();
+    setupAddStudents();
 });
 

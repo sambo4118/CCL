@@ -1,4 +1,4 @@
-import { loadBookDetails, Modal, showWarning } from "./utils.js";
+import { loadBookDetails, Modal, showWarning, createCheckoutModal, createReturnModal, createEditCheckoutModal } from "./utils.js";
 
 document.addEventListener('DOMContentLoaded', async () => {
     const bookId = window.location.pathname.split('/').pop();
@@ -23,7 +23,7 @@ function cleanBook(book) {
 }
 
 function displayBookDetails(book) {
-    const { cover, title, author, year, publisher, isbn, blurb, localnumber, checkoutButton, checkoutStatus, checkoutInfo } = getDetailElements();
+    const { cover, title, author, year, publisher, isbn, blurb, localnumber, checkoutButton, editCheckoutButton, checkoutStatus, checkoutInfo } = getDetailElements();
     cover.src = book.coverUrl;
     title.textContent = book.title ?? 'untitled';
     author.textContent = book.author ?? 'Unknown';
@@ -35,8 +35,36 @@ function displayBookDetails(book) {
     checkoutStatus.textContent = book.checkout ? 'Checked Out' : 'Available';
     if (!book.checkout) {
         checkoutInfo.innerHTML = '';
+        editCheckoutButton?.classList.add('is-hidden');
+        if (editCheckoutButton) editCheckoutButton.onclick = null;
+        checkoutButton.onclick = () => {
+            const modal = createCheckoutModal('book', book, async (newCheckout) => {
+                book.checkout = newCheckout;
+                displayBookDetails(book);
+            });
+            modal.open();
+        };
         return;
     }
+
+    editCheckoutButton?.classList.remove('is-hidden');
+    if (editCheckoutButton) {
+        editCheckoutButton.onclick = () => {
+            const modal = createEditCheckoutModal(book.checkout, async () => {
+                book.checkout = await getRecentCheckout(book.id);
+                displayBookDetails(book);
+            });
+            modal.open();
+        };
+    }
+
+    checkoutButton.onclick = () => {
+        const modal = createReturnModal(book.checkout, async () => {
+            book.checkout = null;
+            displayBookDetails(book);
+        });
+        modal.open();
+    };
 
     const dueDate = new Date(book.checkout.checkoutDate);
     dueDate.setDate(dueDate.getDate() + (book.checkout.duration ?? 14));
@@ -52,10 +80,11 @@ function getDetailElements() {
     const isbn = document.getElementById('bookISBN');
     const blurb = document.getElementById('bookBlurb');
     const localnumber = document.getElementById('bookLocalnumber');
-    const checkoutButton = document.getElementById('checkoutBookButton');
+    const checkoutButton = document.getElementById('checkoutButton');
+    const editCheckoutButton = document.getElementById('editCheckoutButton');
     const checkoutStatus = document.getElementById('checkoutStatus');
     const checkoutInfo = document.getElementById('checkoutInfo');
-    return { cover, title, author, year, publisher, isbn, blurb, localnumber, checkoutButton, checkoutStatus, checkoutInfo };
+    return { cover, title, author, year, publisher, isbn, blurb, localnumber, checkoutButton, editCheckoutButton, checkoutStatus, checkoutInfo };
 }
 
 function buildEditModal(book) {

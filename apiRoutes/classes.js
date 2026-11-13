@@ -8,6 +8,17 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const classesRoute = express.Router();
 
+// GET /api/classes/count — count all classes (public, no auth required)
+classesRoute.get('/count', async (req, res) => {
+    try {
+        const [result] = await db.select({ count: count() }).from(classes);
+        return res.json({ count: Number(result?.count ?? 0) });
+    } catch (error) {
+        console.error('Error counting classes:', error);
+        return res.status(500).json({ error: 'Failed to count classes' });
+    }
+});
+
 // GET /api/classes — list all classes with student counts
 classesRoute.get('/', async (req, res) => {
     const searchQuery = req.query.search?.toString().trim();
@@ -195,6 +206,119 @@ classesRoute.put('/:id', upload.single('image'), async (req, res) => {
         }
         console.error('--- Drizzle DB Error ---', error);
         return res.status(500).json({ error: 'Failed to update class in database' });
+    }
+});
+
+// POST /api/classes — create a new class
+classesRoute.post('/', upload.single('image'), async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { name, teacherName } = req.body;
+    if (!name || name === 'undefined' || name === 'null' || !name.trim()) {
+        return res.status(400).json({ error: 'Class name is required' });
+    }
+
+    const insertData = {
+        name: name.trim(),
+        teacherName: (teacherName && teacherName !== 'undefined' && teacherName !== 'null') ? teacherName.trim() : '',
+    };
+
+    if (req.file) {
+        insertData.image = req.file.buffer;
+    }
+
+    let studentIds = [];
+    if (req.body.studentIds !== undefined && req.body.studentIds !== 'undefined') {
+        try {
+            const parsed = typeof req.body.studentIds === 'string'
+                ? JSON.parse(req.body.studentIds)
+                : req.body.studentIds;
+            if (!Array.isArray(parsed)) {
+                return res.status(400).json({ error: 'studentIds must be an array' });
+            }
+            studentIds = parsed.map(Number).filter(id => !isNaN(id));
+        } catch (error) {
+            return res.status(400).json({ error: `Invalid JSON for studentIds: ${error.message}` });
+        }
+    }
+
+    try {
+        const createdClass = await db.transaction((transaction) => {
+            const classRecord = transaction
+                .insert(classes)
+                .values(insertData)
+                .returning()
+                .get();
+
+            if (studentIds.length > 0) {
+                const existing = transaction
+                    .select({ id: students.id })
+                    .from(students)
+                    .where(inArray(students.id, studentIds))
+                    .all();
+
+                if (existing.length !== studentIds.length) {
+                    throw new Error('INVALID_STUDENT_ID');
+                }
+
+                transaction
+                    .update(students)
+                    .set({ classId: Number(classRecord.id) })
+                    .where(inArray(students.id, studentIds))
+                    .run();
+            }
+
+            return classRecord;
+        });
+
+        return res.status(201).json(createdClass);
+    } catch (error) {
+        if (error.message === 'INVALID_STUDENT_ID') {
+            return res.status(400).json({ error: 'One or more selected student IDs do not exist' });
+        }
+        console.error('Error creating class:', error);
+        return res.status(500).json({ error: 'Failed to create class' });
+    }
+});
+
+// DELETE /api/classes/:id — delete a class and unassign its students
+classesRoute.delete('/:id', async (req, res) => {
+    const classId = Number(req.params.id);
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    if (!Number.isFinite(classId)) return res.status(400).json({ error: 'Invalid class ID' });
+
+    try {
+        const deletedClass = await db.transaction((transaction) => {
+            const existing = transaction
+                .select({ id: classes.id, name: classes.name })
+                .from(classes)
+                .where(eq(classes.id, classId))
+                .get();
+
+            if (!existing) return null;
+
+            transaction
+                .update(students)
+                .set({ classId: null })
+                .where(eq(students.classId, classId))
+                .run();
+
+            transaction
+                .delete(classes)
+                .where(eq(classes.id, classId))
+                .run();
+
+            return existing;
+        });
+
+        if (!deletedClass) {
+            return res.status(404).json({ error: 'Class not found' });
+        }
+
+        return res.json({ success: true, deleted: deletedClass });
+    } catch (error) {
+        console.error('Error deleting class:', error);
+        return res.status(500).json({ error: 'Failed to delete class' });
     }
 });
 

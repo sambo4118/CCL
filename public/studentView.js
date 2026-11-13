@@ -1,4 +1,4 @@
-import { Modal, showWarning, showAuthWarning } from './utils.js';
+import { Modal, showWarning, showAuthWarning, createCheckoutModal, createReturnModal, createEditCheckoutModal } from './utils.js';
 import { Viewlist } from './listBuilderClass.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -10,12 +10,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateStudentInfoFields(student);
 
         const modal = buildStudentEditModal(student);
-        const { editStudentButton } = getStudentInfoFields();
+        const { editStudentButton, checkoutBookButton } = getStudentInfoFields();
         editStudentButton?.addEventListener('click', () => modal.open());
 
-        const checkoutList = buildStudentCheckoutList();
-        const checkouts = await loadStudentCheckouts(studentId);
-        checkoutList.render(checkouts);
+        let checkoutList;
+        const refreshCheckouts = async () => {
+            const updatedCheckouts = await loadStudentCheckouts(studentId);
+            checkoutList.render(updatedCheckouts);
+        };
+
+        checkoutList = buildStudentCheckoutList(refreshCheckouts);
+        await refreshCheckouts();
+
+        checkoutBookButton?.addEventListener('click', () => {
+            const checkoutModal = createCheckoutModal('student', student, refreshCheckouts);
+            checkoutModal.open();
+        });
     } catch (error) {
         console.error('failed to get student info', error);
     }
@@ -128,11 +138,11 @@ function buildStudentEditModal(student) {
     };
 
     modal.addFields(config);
-    customizeStudentModalFields(modal);
+    customizeStudentModalFields(modal, student);
     return modal;
 }
 
-function customizeStudentModalFields(modal) {
+function customizeStudentModalFields(modal, student) {
     const searchDropdown = modal.controlDivs.classSearch;
     if (!searchDropdown) return;
 
@@ -180,6 +190,34 @@ function customizeStudentModalFields(modal) {
     inputCol.appendChild(searchDropdown);
     rowWrapper.appendChild(inputCol);
     rowWrapper.appendChild(btnCol);
+
+    if (modal.footButtons && student?.id) {
+        const deleteStudentBtn = document.createElement('button');
+        deleteStudentBtn.type = 'button';
+        deleteStudentBtn.className = 'button is-danger has-text-white';
+        deleteStudentBtn.textContent = 'Delete Student';
+        deleteStudentBtn.addEventListener('click', () => {
+            showWarning(`Are you sure you want to delete student <strong>${student.name}</strong>? This will also remove their checkout records.`, {
+                onConfirm: async () => {
+                    try {
+                        const res = await fetch(`/api/students/${student.id}`, {
+                            method: 'DELETE',
+                            credentials: 'include'
+                        });
+                        if (!res.ok) {
+                            const errData = await res.json().catch(() => ({}));
+                            throw new Error(errData.error || 'Failed to delete student');
+                        }
+                        modal.close();
+                        window.location.href = student.classId ? `/classes/${student.classId}` : '/search';
+                    } catch (error) {
+                        showWarning(error.message || 'Failed to delete student');
+                    }
+                }
+            });
+        });
+        modal.footButtons.appendChild(deleteStudentBtn);
+    }
 }
 
 async function updateStudentInfo(student, modal) {
@@ -232,12 +270,26 @@ async function updateStudentInfo(student, modal) {
     }
 }
 
-function buildStudentCheckoutList() {
+function buildStudentCheckoutList(onCheckoutReturned = null) {
     const actionConfig = {
         size: 1,
         buttonColor: 'danger',
         iconClass: 'fas fa-check fa-lg',
-        color: (checkout) => checkout.returnDate ? 'success' : (new Date(checkout.checkoutDate) < new Date() ? 'danger' : 'warning')
+        color: (checkout) => checkout.returnDate ? 'success' : (new Date(checkout.checkoutDate) < new Date() ? 'danger' : 'warning'),
+        onClick: (checkout) => {
+            if (checkout.returnDate) return;
+            const modal = createReturnModal(checkout, onCheckoutReturned);
+            modal.open();
+        }
+    };
+
+    const editConfig = {
+        iconClass: 'fas fa-solid fa-pen-to-square',
+        title: 'Edit Checkout',
+        onClick: (checkout) => {
+            const modal = createEditCheckoutModal(checkout, onCheckoutReturned);
+            modal.open();
+        }
     };
 
     const columnsConfig = {
@@ -289,6 +341,7 @@ function buildStudentCheckoutList() {
             alt: (checkout) => `${checkout.bookTitle ?? 'Book'} cover`
         },
         actionConfig,
+        editConfig,
         columnsConfig
     });
 
@@ -302,6 +355,7 @@ function getStudentInfoFields() {
     const studentGrade = document.getElementById('studentGrade');
     const studentNotes = document.getElementById('studentNotes');
     const editStudentButton = document.getElementById('editStudentButton');
+    const checkoutBookButton = document.getElementById('checkoutBookButton');
     const studentAge = document.getElementById('studentAge');
     const studentEnrollmentYear = document.getElementById('studentEnrollmentYear');
     const studentHomeroom = document.getElementById('studentHomeroom');
@@ -313,6 +367,7 @@ function getStudentInfoFields() {
         studentGrade,
         studentNotes,
         editStudentButton,
+        checkoutBookButton,
         studentAge,
         studentEnrollmentYear,
         studentHomeroom,

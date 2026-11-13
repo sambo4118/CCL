@@ -1,9 +1,20 @@
 import express from 'express';
-import { eq, like } from 'drizzle-orm';
+import { eq, like, count } from 'drizzle-orm';
 import { db } from '../database/index.js';
 import { authors } from '../database/schema.js';
 
 const authorsRoute = express.Router();
+
+// GET /api/authors/count — count all authors (public, no auth required)
+authorsRoute.get('/count', async (req, res) => {
+    try {
+        const [result] = await db.select({ count: count() }).from(authors);
+        return res.json({ count: Number(result?.count ?? 0) });
+    } catch (error) {
+        console.error('Error counting authors:', error);
+        return res.status(500).json({ error: 'Failed to count authors' });
+    }
+});
 
 // GET /api/authors — search or list authors
 authorsRoute.get('/', async (req, res) => {
