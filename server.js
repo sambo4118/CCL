@@ -34,7 +34,11 @@ if (process.env.NODE_ENV === 'development') {
     setupAuthRoutes(app, sendPage, __dirname);
 }
 
-app.use(express.json());
+app.use(express.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('trust proxy', 1);
 
@@ -48,6 +52,7 @@ import classesRoute from './apiRoutes/classes.js';
 import checkoutsRoute from './apiRoutes/checkouts.js';
 import authorsRoute from './apiRoutes/authors.js';
 import backupsRoute from './apiRoutes/backups.js';
+import updateRoute from './apiRoutes/update.js';
 import { startAutomaticBackups } from './services/backupService.js';
 
 app.use('/api/checkouts', checkoutsRoute);
@@ -65,6 +70,8 @@ app.use('/api/classes', classesRoute);
 app.use('/api/authors', authorsRoute);
 
 app.use('/api/backups', backupsRoute);
+
+app.use('/api/update', updateRoute);
 
 // #endregion
 

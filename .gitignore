@@ -10,3 +10,4 @@ authentication/sessions.*
 database/migrations/*
 *.db-shm
 *.db-wal
+setup-synology.sh
